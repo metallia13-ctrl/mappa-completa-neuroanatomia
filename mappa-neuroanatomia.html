@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neuroanatomia · Mappa mentale</title>
+<meta name="description" content="Mappa mentale interattiva di Neuroanatomia con nodi espandibili e note.">
+<style>
+:root{
+  --bg:#f6f4ef; --dot:#dcd7cc; --ink:#22252b; --muted:#6b6f78; --card:#ffffff;
+  --line:#c9c4b8; --panel:#fffdf9; --bar:rgba(255,253,249,.88); --shadow:0 6px 24px rgba(30,30,40,.10);
+  --hit:#ffd84d; --clin:#c0392b; --ref:#4a6fa5;
+}
+html[data-theme="dark"]{
+  --bg:#16181d; --dot:#2a2e36; --ink:#e9e7e2; --muted:#9aa0aa; --card:#1f232a;
+  --line:#3a3f49; --panel:#1c1f25; --bar:rgba(28,31,37,.9); --shadow:0 6px 24px rgba(0,0,0,.45);
+  --hit:#b8962a; --clin:#ff7b6b; --ref:#8fb3ec;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+#viewport{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;
+  background-image:radial-gradient(var(--dot) 1.1px,transparent 1.2px);background-size:22px 22px}
+#viewport.dragging{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#links{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+#links path{fill:none;stroke-linecap:round}
+
+/* ---------- nodi ---------- */
+.node{position:absolute;left:0;top:0;display:none;width:max-content;user-select:none;-webkit-user-select:none;
+  line-height:1.3;cursor:pointer;will-change:transform}
+.node .txt{white-space:normal;overflow-wrap:anywhere}
+.lv0{max-width:300px;padding:16px 26px;border-radius:16px;background:var(--ink);color:var(--bg);
+  font-size:24px;font-weight:750;letter-spacing:-.01em;box-shadow:var(--shadow);text-align:center}
+.lv0 small{display:block;font-size:12px;font-weight:500;opacity:.7;margin-top:3px;letter-spacing:0}
+.lv1{max-width:240px;padding:9px 15px;border-radius:12px;background:var(--c);color:#fff;
+  font-size:16px;font-weight:650;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.lv2{max-width:260px;padding:6px 11px;border-radius:9px;background:var(--card);
+  border:2px solid var(--c);font-size:14px;font-weight:560}
+.lvx{max-width:290px;padding:3px 4px 4px;font-size:13.5px;border-bottom:2px solid var(--c)}
+.lv4,.lv5,.lv6{font-size:13px;border-bottom-width:1.5px}
+.node:hover .txt{text-decoration:underline;text-decoration-color:var(--c);text-underline-offset:3px}
+.lv1:hover .txt{text-decoration-color:#fff}
+.node.leaf{cursor:default}
+.node.leaf.hasnote,.node.ref{cursor:pointer}
+.node.ref .txt{color:var(--ref);font-style:italic}
+.node.hit{box-shadow:0 0 0 3px var(--hit)}
+.node.flash{animation:flash 1.6s ease-out}
+@keyframes flash{0%,30%{box-shadow:0 0 0 7px var(--hit)}100%{box-shadow:0 0 0 0 transparent}}
+.node.sel{outline:2px dashed var(--c);outline-offset:3px}
+.chip{display:inline-block;margin-left:6px;padding:0 6px;border-radius:99px;font-size:10.5px;
+  font-weight:650;vertical-align:1px;color:var(--clin);border:1px solid var(--clin);letter-spacing:.02em}
+.lv1 .chip{color:#fff;border-color:#fff}
+.nb{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;margin-left:6px;
+  border-radius:50%;border:none;background:var(--c);color:#fff;font:italic 700 11px/1 Georgia,serif;
+  cursor:pointer;vertical-align:1px;padding:0}
+.lv1 .nb{background:#fff;color:var(--c)}
+.nb:hover{transform:scale(1.15)}
+.tg{position:absolute;left:0;top:0;display:none;width:18px;height:18px;border-radius:50%;padding:0;
+  border:1.5px solid var(--c);background:var(--card);color:var(--c);font-size:11px;font-weight:700;
+  line-height:15px;text-align:center;cursor:pointer;will-change:transform}
+.tg.closed{background:var(--c);color:#fff;min-width:18px;width:auto;padding:0 4px;border-radius:9px}
+.tg:hover{filter:brightness(1.1);transform-origin:center}
+
+/* ---------- toolbar ---------- */
+#bar{position:fixed;left:12px;right:12px;top:12px;z-index:30;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:8px 10px;border-radius:14px;background:var(--bar);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--shadow);border:1px solid var(--line)}
+#bar h1{margin:0 6px 0 4px;font-size:15px;font-weight:750;white-space:nowrap;letter-spacing:-.01em}
+#bar h1 span{color:var(--muted);font-weight:500}
+.grp{display:flex;gap:4px;align-items:center}
+.btn{height:32px;min-width:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);
+  cursor:pointer;font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:translateY(1px)}
+.btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.lbl{font-size:12px;color:var(--muted);margin:0 2px 0 6px}
+#searchWrap{position:relative;flex:1 1 220px;min-width:180px;max-width:420px}
+#q{width:100%;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  padding:0 30px 0 32px;font-size:14px;outline:none}
+#q:focus{border-color:var(--ink)}
+#searchWrap .ico{position:absolute;left:10px;top:8px;width:15px;height:15px;opacity:.55;pointer-events:none}
+#qx{position:absolute;right:4px;top:4px;width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--muted);display:none}
+#res{position:absolute;left:0;right:0;top:38px;max-height:min(60vh,440px);overflow:auto;display:none;border-radius:12px;
+  background:var(--panel);box-shadow:var(--shadow);border:1px solid var(--line);padding:4px}
+#res .r{padding:7px 9px;border-radius:8px;cursor:pointer}
+#res .r:hover,#res .r.act{background:rgba(127,127,127,.13)}
+#res .r b{font-weight:620}
+#res .r .pth{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+#res .r .sn{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+#res .cnt{font-size:12px;color:var(--muted);padding:5px 9px}
+mark{background:var(--hit);color:inherit;border-radius:3px;padding:0 1px}
+.menu{position:relative}
+.menu .dd{position:absolute;right:0;top:38px;min-width:230px;display:none;border-radius:12px;background:var(--panel);
+  box-shadow:var(--shadow);border:1px solid var(--line);padding:5px;z-index:30}
+.menu.open .dd{display:block}
+.dd button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13.5px}
+.dd button:hover{background:rgba(127,127,127,.13)}
+.dd small{display:block;color:var(--muted);font-size:11.5px}
+
+/* ---------- pannello note ---------- */
+#panel{position:fixed;z-index:25;right:12px;top:var(--top,72px);bottom:12px;width:min(380px,calc(100vw - 24px));
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;transform:translateX(calc(100% + 30px));transition:transform .25s ease;overflow:hidden}
+#panel.open{transform:none}
+#panel .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);position:relative}
+#panel .crumbs{font-size:12px;color:var(--muted);line-height:1.5;padding-right:30px}
+#panel .crumbs a{color:inherit;text-decoration:none;cursor:pointer;border-bottom:1px dotted var(--muted)}
+#panel .crumbs a:hover{color:var(--ink)}
+#panel h2{margin:6px 0 0;font-size:18px;line-height:1.3;border-left:4px solid var(--c);padding-left:10px}
+#panel .bd{padding:14px 16px 18px;overflow:auto;font-size:15px;line-height:1.6}
+#panel .bd p{margin:0 0 10px}
+#panel .bd .empty{color:var(--muted);font-style:italic}
+#panel .sub{margin-top:14px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#panel .kids{list-style:none;padding:0;margin:6px 0 0}
+#panel .kids li{padding:5px 8px;border-radius:8px;cursor:pointer;font-size:14px;border-left:3px solid var(--c);margin-bottom:4px;background:rgba(127,127,127,.07)}
+#panel .kids li:hover{background:rgba(127,127,127,.15)}
+#pclose{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:16px;line-height:1}
+
+/* ---------- info / legenda ---------- */
+#legend{position:fixed;left:12px;bottom:12px;z-index:15;font-size:12px;color:var(--muted);background:var(--bar);
+  border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#legend .nb{--c:var(--muted);margin:0 3px 0 0;cursor:default}
+#legend .chip{margin:0 3px 0 0}
+#zoomlbl{min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
+#modal{position:fixed;inset:0;z-index:40;background:rgba(10,10,15,.45);display:none;align-items:center;justify-content:center;padding:16px}
+#modal.open{display:flex}
+#modal .box{max-width:620px;width:100%;max-height:86vh;overflow:auto;background:var(--panel);border-radius:18px;padding:22px 24px;box-shadow:var(--shadow);border:1px solid var(--line);font-size:14.5px;line-height:1.6}
+#modal h3{margin:0 0 6px;font-size:19px}
+#modal h4{margin:16px 0 4px;font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+#modal ul{margin:4px 0;padding-left:20px}
+#modal kbd{font:12px ui-monospace,Menlo,Consolas,monospace;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--card)}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);opacity:0;z-index:50;background:var(--ink);color:var(--bg);
+  padding:8px 14px;border-radius:10px;font-size:13px;transition:.25s;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (max-width:760px){
+  .lv0{font-size:19px;padding:12px 18px;max-width:210px}
+  #bar{left:6px;right:6px;top:6px;padding:6px;gap:6px}
+  #bar h1{font-size:14px;flex:1 0 auto}
+  #bar h1 span{display:none}
+  #searchWrap{order:5;flex:1 1 100%;max-width:none}
+  .hide-m{display:none!important}
+  .btn{height:30px;min-width:30px;padding:0 8px}
+  #panel{left:6px;right:6px;width:auto;top:auto;bottom:6px;height:min(58vh,520px);transform:translateY(calc(100% + 20px))}
+  #legend{display:none}
+}
+@media (prefers-reduced-motion:reduce){#panel{transition:none}}
+@media print{#bar,#legend,#panel,#toast{display:none!important}#viewport{background:none}}
+</style>
+</head>
+<body>
+<div id="viewport" aria-label="Mappa mentale. Trascina per spostarti, rotellina o pizzico per lo zoom.">
+  <div id="world"><svg id="links" width="1" height="1" aria-hidden="true"></svg></div>
+</div>
+
+<header id="bar">
+  <h1>Neuroanatomia <span>· mappa mentale</span></h1>
+  <div id="searchWrap">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Cerca un argomento o una parola nelle note…  ( / )" autocomplete="off" spellcheck="false" aria-label="Cerca">
+    <button id="qx" aria-label="Cancella ricerca">✕</button>
+    <div id="res" role="listbox"></div>
+  </div>
+  <div class="grp" role="group" aria-label="Livelli">
+    <span class="lbl hide-m">Livello</span>
+    <button class="btn" data-lv="1" title="Mostra solo i macroargomenti">1</button>
+    <button class="btn" data-lv="2" title="Mostra fino al 2° livello">2</button>
+    <button class="btn" data-lv="3" title="Mostra fino al 3° livello">3</button>
+    <button class="btn" data-lv="99" title="Espandi tutto">Tutto</button>
+  </div>
+  <div class="grp">
+    <button class="btn" id="zout" title="Riduci zoom (−)" aria-label="Riduci zoom">−</button>
+    <button class="btn hide-m" id="zoomlbl" title="Zoom 100%">100%</button>
+    <button class="btn" id="zin" title="Aumenta zoom (+)" aria-label="Aumenta zoom">+</button>
+    <button class="btn" id="fit" title="Adatta alla finestra (0)">⤢<span class="hide-m">Adatta</span></button>
+  </div>
+  <div class="grp">
+    <button class="btn" id="theme" title="Tema chiaro/scuro" aria-label="Tema">☾</button>
+    <div class="menu" id="expMenu">
+      <button class="btn" id="expBtn" title="Esporta">⇩<span class="hide-m">Esporta</span></button>
+      <div class="dd">
+        <button data-exp="md">Markdown (.md)<small>Si legge direttamente su GitHub</small></button>
+        <button data-exp="opml">OPML (.opml)<small>Importabile in XMind e altri editor di mappe</small></button>
+        <button data-exp="json">JSON (.json)<small>Dati grezzi della mappa</small></button>
+      </div>
+    </div>
+    <button class="btn" id="infoBtn" title="Guida e fonti" aria-label="Guida e fonti">?</button>
+  </div>
+</header>
+
+<aside id="panel" aria-live="polite">
+  <div class="hd"><div class="crumbs" id="pcrumbs"></div><h2 id="ptitle"></h2><button id="pclose" aria-label="Chiudi nota">✕</button></div>
+  <div class="bd" id="pbody"></div>
+</aside>
+
+<div id="legend">
+  <span><span class="nb">i</span>nota esplicativa</span>
+  <span><span class="chip">Clinica</span>riferimento clinico</span>
+  <span style="color:var(--ref);font-style:italic">↪ rimando</span>
+  <span>clic sul nodo = apri/chiudi</span>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+  <div class="box">
+    <h3 id="mtitle">Mappa mentale di Neuroanatomia</h3>
+    <div>Mappa omnicomprensiva costruita esclusivamente sulle fonti del corso. I rami seguono criteri anatomici (dal generale al particolare, in senso caudo-craniale: midollo → tronco → cervelletto → diencefalo → telencefalo) e funzionali (vie, sistemi, organi di senso, vascolarizzazione).</div>
+    <h4>Come si usa</h4>
+    <ul>
+      <li><b>Clic su un nodo</b> o sul cerchietto: apre/chiude il ramo (il numero indica quanti sotto-rami contiene).</li>
+      <li><b>Pulsante <i>i</i></b>: apre la nota esplicativa del concetto.</li>
+      <li><b>Trascina</b> per spostarti; <b>rotellina</b>, <kbd>Ctrl</kbd>+rotellina o <b>pizzico</b> per lo zoom.</li>
+      <li><b>Livello 1/2/3/Tutto</b> per aprire la mappa per livelli.</li>
+      <li>Tasti: <kbd>/</kbd> cerca · <kbd>0</kbd> adatta · <kbd>+</kbd>/<kbd>−</kbd> zoom · <kbd>Esc</kbd> chiudi.</li>
+      <li>Lo stato dei rami aperti viene ricordato in questo browser. Il link della pagina punta al nodo della nota aperta.</li>
+    </ul>
+    <h4>Fonti utilizzate</h4>
+    <ul>
+      <li>Slide del corso di Neuroanatomia (slide_neuroanatomia.pdf)</li>
+      <li>Slide «Intro e generalità SNC-SNP» (MC 2024), prof.ssa M. P. Serra</li>
+      <li>Sbobinature di Neuroanatomia, a.a. 2022-2023, prof.ssa M. P. Serra</li>
+      <li>Appunti di Giulia Peis, Neuroanatomia, prof.ssa M. Quartu (a.a. 2020-2021)</li>
+    </ul>
+    <p style="margin-top:16px;text-align:right"><button class="btn" id="mclose">Chiudi</button></p>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script type="text/plain" id="mapdata">
+- Generalità e organizzazione del SN
+  - Orientamento nel SNC
+    - Piani fondamentali
+      - Sagittale (mediano: unico piano di simmetria dx/sx)
+      - Frontale o coronale (anteriore/posteriore)
+      - Trasversale o orizzontale (superiore/inferiore)
+    - Assi dell'encefalo || Durante lo sviluppo l'encefalo si ripiega in avanti: per questo i termini di posizione non coincidono con quelli del resto del corpo.
+      - Asse di Forel: asse dell'encefalo, obliquo/declive (dal basso in alto, dall'indietro in avanti)
+      - Asse di Meynert: asse del midollo spinale; con Forel forma un angolo
+    - Termini di posizione || Nel midollo valgono i termini del corpo; nell'encefalo cambiano per il ripiegamento: ciò che è anteriore è rostrale, ciò che è posteriore è caudale.
+      - Midollo: ventrale = anteriore, dorsale = posteriore; rostrale = verso l'alto, caudale = verso il coccige
+      - Encefalo: dorsale = superiore, ventrale = inferiore; rostrale = anteriore, caudale = posteriore
+      - Rostrale: dal "rostro", formazione embrionale
+    - Sezioni di studio
+      - Midollo e tronco: sempre trasversali (si riconoscono meglio i gruppi di sostanza grigia)
+      - Encefalo: coronali e trasversali; sagittali per corpo calloso e III ventricolo
+  - Simmetria bilaterale (simile ma non identica) || Le due metà di encefalo (come del volto) sono simili ma non uguali: le circonvoluzioni differiscono tra dx e sx. Si ritiene un segno dell'adattabilità dell'encefalo umano.
+  - Metameria || Ripetizione regolare in senso cranio-caudale di segmenti simili. Nel SN: i nervi spinali escono a intervalli regolari dai fori intervertebrali; a ogni coppia corrisponde un neuromero.
+    - Neuromero: segmento di midollo da cui origina una coppia di nervi spinali
+    - Si perde salendo nel tronco encefalico (accenno nel n. ipoglosso)
+  - Filogenesi del SN
+    - Spugne: nessun neurone
+    - Celenterati: cellule nervose negli epiteli in rapporto con cellule muscolari
+    - Tappe evolutive || A: elemento effettore direttamente eccitabile; B: elemento sensitivo in rapporto con cellula muscolare; C: sensitivo collegato agli effettori tramite un neurone di associazione.
+    - Tendenza alla centralizzazione (nevrasse protetto da involucri ossei)
+    - Funzioni di base: afferenza (sensibilità), integrazione, efferenza
+  - Suddivisioni del SN
+    - Topografica
+      - SNC (nevrasse): encefalo + midollo spinale
+      - SNP: gangli, nervi, corpuscoli e organi di senso
+    - Funzionale
+      - Somatico o di relazione: muscoli scheletrici e cute (nervi con assoni motori e sensitivi)
+      - Vegetativo (autonomo o viscerale): muscolo liscio, ghiandole, cuore; sensibilità viscerale
+    - Collegamento SNC-periferia a doppio senso || In uscita: assoni dei motoneuroni somatici e viscerali. In entrata: fibre centripete dei neuroni sensitivi primari (pseudounipolari "a T") dei gangli spinali.
+  - Sostanza grigia e bianca
+    - Grigia: corpi neuronali, dendriti, fibre amieliniche, glia
+    - Bianca: fibre mieliniche + glia
+    - Disposizione: midollo = grigia interna; telencefalo e cervelletto = corteccia esterna + nuclei grigi profondi
+- Tessuto nervoso
+  - Neuroni
+    - Proprietà: eccitabilità, trasduzione, conducibilità, trasmissibilità, memorizzazione || Memorizzazione: il neurone "ricorda" gli stimoli ricevuti e le risposte date ed è in grado di ripeterle a nuova stimolazione (base della plasticità).
+    - Cellule perenni (non si dividono) || Esistono tuttavia regioni in cui è stata dimostrata neurogenesi nell'adulto.
+    - Classificazione per forma
+      - Unipolari / pseudounipolari (gangli sensitivi, "a T")
+      - Bipolari (es. ganglio vestibolare, retina)
+      - Multipolari (la maggior parte)
+    - Classificazione per lunghezza dell'assone
+      - 1° tipo di Golgi: assone lungo (neuroni di proiezione)
+      - 2° tipo di Golgi: assone breve (interneuroni, circuiti locali)
+    - Classificazione per dimensioni (es. piramidali giganti, cellule del Purkinje vs granuli)
+    - Classificazione neurochimica: popolazioni distinte per mediatore
+    - Catene neuronali: vie ascendenti e discendenti
+  - Glia (non eccitabile, si divide)
+    - Funzioni: sostegno, trofica, isolante, difesa immunitaria, degradazione neurotrasmettitori
+    - SNC
+      - Astrociti fibrosi (sostanza bianca, sostegno) e protoplasmatici (sostanza grigia)
+      - Oligodendrociti: mielina nel SNC
+      - Cellule ependimali: rivestono ventricoli e canale centrale
+      - Microglia: origine mesodermica, immunocompetente (sistema APC)
+      - Glia di Bergmann (cervelletto): astrocita modificato simile alla glia radiale
+    - SNP: cellule di Schwann, cellule satelliti dei gangli
+  - Fibre nervose
+    - Calibro ∝ velocità di conduzione
+    - Aα: le più veloci; propriocettori (fusi, organi tendinei del Golgi), motoneuroni α
+    - Aβ: tatto, pressione
+    - Aδ: dolore rapido, termica
+    - C: amieliniche, sottili; dolore lento/viscerale; postgangliari del SNA
+    - Tipo Ia (fusi) e Ib (organi tendinei) nella classificazione delle afferenze muscolari
+  - Sinapsi
+    - Chimiche (trasmissione unidirezionale)
+      - Componenti: elemento presinaptico (vescicole), fessura, postsinaptico
+      - Per sede: asso-dendritiche, asso-somatiche, asso-assoniche, dendro-dendritiche || Dendro-dendritiche: contatti tra spine di neuroni contigui che, più che generare un impulso, alterano l'elettrotono del neurone bersaglio.
+      - Per effetto: eccitatorie (depolarizzazione) / inibitorie (iperpolarizzazione)
+      - Placca motrice: giunzione neuromuscolare
+      - Sinapsi "en passant" || Il mediatore è liberato nello spazio intercellulare da varicosità lungo l'assone: tipica di muscolatura liscia e ghiandole (SNA).
+      - Affinamento delle proiezioni per eliminazione delle sinapsi (es. mappa retinotettale)
+    - Elettriche (giunzioni gap)
+      - Connessoni di connessina; ↑Ca²⁺ → chiusura "a diaframma"
+      - Permeabilità regolabile (es. dopamina ↓ permeabilità via AMPc nella retina)
+  - Trasporto assonale e supporto trofico
+    - Trasporto retrogrado di NGF dal bersaglio || Esperimenti: lesione dell'assone o colchicina (blocca il trasporto) → sofferenza del neurone; NGF somministrato dopo la lesione → recupero. Il neurone dipende dal fattore trofico del bersaglio.
+- Sviluppo del SN
+  - Neurulazione (dall'ectoderma)
+    - Piastra neurale → doccia neurale → tubo neurale
+    - Chiusura iniziata a livello del ~5° somite, poi neuropori anteriore e posteriore
+  - Derivati
+    - Tubo neurale: SNC (neuroni e macroglia)
+    - Creste neurali: SNP (neuroni e glia dei gangli) + altri tipi cellulari secondo il livello cranio-caudale
+    - Microglia: dal mesoderma (entra con i vasi)
+  - Istogenesi
+    - Neuroepitelio pseudostratificato: ependimociti, neuroblasti (→neuroni), spongioblasti (→astrociti, oligodendrociti)
+    - Strati della parete del tubo || Lo schema a tre strati prefigura l'organizzazione dell'adulto (es. midollo: grigia interna, bianca esterna).
+      - Ependimale (profondo, sul canale)
+      - Mantello o intermedio → sostanza grigia
+      - Marginale (fibre) → sostanza bianca
+    - Migrazione radiale dal lume → disposizione in strati
+  - Morfogenesi: vescicole encefaliche
+    - 3 vescicole primarie: prosencefalo, mesencefalo, rombencefalo
+    - 5 vescicole secondarie
+      - Telencefalo (emisferi) e diencefalo
+      - Mesencefalo (resta tale)
+      - Metencefalo (ponte e cervelletto) e mielencefalo (bulbo)
+    - Cavità persistente a tutti i livelli || Ventricoli laterali (telencefalo) → III ventricolo (diencefalo) → acquedotto di Silvio (mesencefalo) → IV ventricolo (ponte, bulbo, cervelletto) → canale centrale (midollo).
+    - Midollo alla nascita fino a L1-L2 → cauda equina sotto
+  - ⚕ Difetti di chiusura del tubo
+    - Neuroporo anteriore: anencefalia (incompatibile con la vita); sindrome di Arnold-Chiari (ernia cerebellare)
+    - Neuroporo posteriore: spina bifida
+      - Occulta (benigna: seno cutaneo, ciuffo di peli)
+      - Aperta (meningocele, mielomeningocele)
+- Involucri, liquor e barriere
+  - Meningi
+    - Dura madre (pachimeninge, la più esterna)
+      - Encefalo: aderente al periostio della volta; forma setti e seni venosi
+      - Setti: falce del cervello, tentorio del cervelletto, falce del cervelletto
+      - Midollo: separata dal canale vertebrale dallo spazio epidurale (grasso + plessi venosi)
+    - Aracnoide
+      - Spazio subdurale (virtuale) tra dura e aracnoide
+      - Spazio subaracnoideo (con liquor) tra aracnoide e pia
+      - Granulazioni aracnoidee del Pacchioni: riassorbimento del liquor
+    - Pia madre: connettivo lasso aderente al tessuto nervoso, segue i vasi
+      - Legamenti denticolati (pia → dura): fissità del midollo
+      - Filum terminale: ancora il cono midollare al coccige
+  - Ventricoli cerebrali
+    - Ventricoli laterali (I e II) nel telencefalo: corno frontale, cella media, corno temporale, corno posteriore
+    - Forami interventricolari di Monro → III ventricolo (diencefalo)
+    - Acquedotto di Silvio (mesencefalo)
+    - IV ventricolo (ponte-bulbo-cervelletto): foro mediano di Magendie e laterali di Luschka
+    - Canale centrale (ependimale) del midollo
+  - Liquor cefalorachidiano
+    - Produzione: plessi corioidei (vasi + ependima), ~0,5 L/die
+    - Circolazione: ventricoli → IV ventricolo → spazi subaracnoidei (Magendie, Luschka)
+    - Riassorbimento: granulazioni aracnoidee → seni venosi della dura (seno sagittale sup.)
+    - Funzioni: protezione meccanica, ambiente chimico del tessuto nervoso
+    - ⚕ Idrocefalo || Patologia da ridotto drenaggio (o ostacolo alla circolazione): il liquor si accumula nei ventricoli e comprime il tessuto nervoso (atrofia della sostanza bianca).
+    - ⚕ Puntura lombare / rachicentesi || Si esegue sotto la fine del midollo (che termina a L1-L2), dove nel sacco durale c'è solo la cauda equina: si preleva liquor senza ledere il midollo.
+  - Barriera ematoencefalica (BEE)
+    - Endotelio continuo con giunzioni strette (tight junctions)
+    - Pedicelli degli astrociti attorno ai capillari
+    - Le sostanze devono attraversare le cellule (passaggio selettivo) || Può essere alterata fisicamente (es. radioterapia) o chimicamente da particolari molecole.
+  - Organi circumventricolari (senza BEE) || Zone adiacenti a III e IV ventricolo e acquedotto con capillari fenestrati: permettono scambi diretti sangue-tessuto nervoso (rilevazione o secrezione).
+    - Neuroipofisi: immette in circolo ossitocina e vasopressina
+    - Area postrema (IV ventricolo): centro emetico, sensibile a variazioni di pH/sostanze nel sangue
+    - Epifisi, eminenza mediana e altri organi presso il III ventricolo
+- Midollo spinale e nervi spinali
+  - Conformazione esterna
+    - Nel canale vertebrale, dal forame magno a L1-L2
+    - Cono midollare → filum terminale; cauda equina
+    - Rigonfiamenti cervicale (arto sup.) e lombare (arto inf.) || Più neuroni nelle corna anteriori per innervare gli arti, quindi più sostanza grigia.
+    - Solchi: fessura mediana anteriore, solco mediano posteriore, solchi collaterali (radici), solco intermedio posteriore (tra gracile e cuneato)
+    - Mezzi di fissità: legamenti denticolati, filum terminale, radici nervose
+  - Rapporti midollo-vertebre
+    - Il midollo cresce meno della colonna: i neuromeri sono più alti delle vertebre corrispondenti || Per questo le radici lombo-sacrali scendono a lungo nel canale (cauda equina) prima di uscire dal proprio foro.
+    - ⚕ Ernia del disco: compressione della radice → deficit nel dermatomero/miotomo corrispondente
+  - Nervi spinali
+    - Nervi misti: fibre somatiche e viscerali, afferenti ed efferenti
+    - Radici: anteriore (motrice) e posteriore (sensitiva, con ganglio spinale) da radicole
+    - Rami: dorsale, ventrale, meningeo, comunicanti bianco (pregangliare) e grigio (postgangliare)
+    - Plessi (dai rami ventrali): cervicale, brachiale, lombare, sacrale, coccigeo
+    - Dermatomero e miotomo || Dermatomero: territorio cutaneo innervato da un neuromero; miotomo: muscoli innervati da un neuromero. Derivano dai somiti e conservano la corrispondenza segmentale nonostante la rotazione degli arti.
+  - Vascolarizzazione
+    - Arteria spinale anteriore (impari) e arterie spinali posteriori (pari), dalle vertebrali
+    - Arterie radicolari/segmentali di rinforzo (da vertebrali, intercostali, lombari, sacrali)
+    - A. radicolare magna di Adamkiewicz (T12-L1 circa) || È la radicolare di maggior calibro; rilevante in chirurgia aortica perché irrora il midollo toraco-lombare.
+    - Vene: vene centrali ant./post., vene piali, radicolari; plessi venosi interno (epidurale) ed esterno
+  - Conformazione interna: sostanza grigia ("H" o farfalla)
+    - Corna posteriori (sensitive)
+      - Ricevono le fibre della radice posteriore, segregate per diametro e tipo di sensibilità
+      - N. marginale (lamina I): dolore protopatico
+      - Sostanza gelatinosa di Rolando (lamina II): modulazione del dolore
+      - Nucleo proprio (lamine III-IV)
+      - N. reticolare (lamina V): neuroni convergenti "wide dynamic range"
+    - Zona intermedia (lamina VII)
+      - Nucleo dorsale di Clarke (T1-L2): propriocezione incosciente → f. spinocerebellare dorsale
+      - Colonna intermedio-laterale (corno laterale T1-L2): pregangliari ortosimpatici
+      - Nucleo autonomo sacrale (corna laterali sacrali): pregangliari parasimpatici
+      - Nucleo commessurale anteriore: afferenze viscerali
+    - Corna anteriori (motrici)
+      - Lamina IX: motoneuroni α, β, γ in colonne
+      - Lamine VII-VIII: interneuroni/premotori
+      - Nucleo di Onuf (sacrale): pavimento pelvico e sfinteri
+    - Lamine di Rexed (I-X) || Suddivisione in 10 lamine numerate in senso dorso-ventrale, estese per tutta la lunghezza del midollo, ciascuna con neuroni dalle caratteristiche comuni. La X circonda il canale centrale.
+  - Sostanza bianca: cordoni
+    - Posteriore: fascicoli gracile (mediale, arto inf.) e cuneato (laterale, arto sup.)
+    - Laterale: corticospinale laterale, spinotalamico laterale, spinocerebellari, rubrospinale
+    - Anteriore: corticospinale anteriore, spinotalamico anteriore, vestibolo-, reticolo-, tettospinali
+  - Riflessi spinali || I riflessi spinali sono stereotipi che costituiscono una "minibase" del movimento, integrata da informazioni corticali per generare movimenti complessi.
+    - Monosinaptico da stiramento (miotatico): fuso → Ia → motoneurone α
+    - Organi tendinei del Golgi (Ib): rilasciamento muscolare da sovraccarico
+    - Flessorio di retrazione (polisinaptico) + estensione crociata controlaterale
+    - Riflessi viscerali: afferenti somatici/viscerali → interneuroni → neuroni visceroeffettori
+  - ⚕ Sindromi midollari
+    - Sezione completa: paralisi e anestesia globale sotto la lesione
+    - Emisezione (Brown-Séquard) || Sotto la lesione: paralisi e perdita di tatto epicritico/propriocezione OMOlaterali (vie che decussano nel bulbo/più in alto), perdita di dolorifica e termica CONTROlaterale (lo spinotalamico decussa subito nel midollo). = dissociazione della sensibilità.
+    - Siringomielia || Cavità (accumulo di liquor) attorno al canale centrale: lede le fibre spinotalamiche che decussano nella commessura → perdita termo-dolorifica bilaterale "a mantellina" nei soli neuromeri interessati, con tatto conservato (dissociazione segmentaria).
+- Vie della sensibilità generale
+  - Classificazione della sensibilità
+    - Esterocettiva
+      - Generale (somestesica): tattile epicritica e protopatica, termica, dolorifica
+      - Speciale: visiva, acustica
+    - Propriocettiva
+      - Generale: muscoli, tendini, articolazioni (cosciente e incosciente)
+      - Speciale: vestibolare
+    - Enterocettiva (viscerale)
+      - Generale: recettori viscerali
+      - Speciale: olfattiva, gustativa
+    - Epicritica vs protopatica || Epicritica: fine, ben localizzata, discriminativa (due punti, vibrazione). Protopatica: grossolana, poco localizzata (tatto grossolano, dolore, temperatura).
+  - Recettori
+    - Esterocettori cutanei: meccanocettori (corpuscoli e terminazioni), termocettori, nocicettori (terminazioni libere)
+    - Propriocettori: fusi neuromuscolari (Ia, II), organi tendinei del Golgi (Ib), recettori articolari
+  - Gerarchia della via sensitiva
+    - 1° neurone (protoneurone): ganglio spinale o encefalico, pseudounipolare
+    - 2° neurone (deutoneurone): midollo o tronco; di solito decussa
+    - 3° neurone: talamo → corteccia
+    - Non tutte arrivano alla corteccia (alcune si fermano a tronco, cervelletto, diencefalo)
+  - Sistema delle colonne dorsali (lemniscale)
+    - Via ganglio-bulbo-talamo-corticale || 1° neurone: ganglio spinale, l'assone sale omolaterale nei fascicoli gracile/cuneato. 2°: nuclei gracile e cuneato del bulbo; gli assoni decussano (fibre arcuate interne) e formano il lemnisco mediale. 3°: talamo VPL → corteccia somatosensitiva primaria (aree 3,1,2).
+    - Veicola: tatto epicritico e propriocezione cosciente
+    - Via post-sinaptica delle colonne dorsali (PSDC) || I nuclei gracile e cuneato ricevono anche informazioni di secondo ordine dal corno dorsale: informazioni meccaniche polisinaptiche (e viscerali).
+    - Organizzazione somatotopica (gracile = arto inf., cuneato = arto sup.)
+  - Sistema spinotalamico (ganglio-spino-talamo-corticale) || Sistema protopatico principale: dolore, temperatura, tatto grossolano. Il 2° neurone è nel corno dorsale e decussa subito nella commessura bianca anteriore.
+    - Neospinotalamico (laterale + anteriore)
+      - Dolore acuto "rapido", temperature non nocicettive, tatto leggero
+      - Trisinaptico, somatotopico, tutto crociato → VPL → corteccia somatosensitiva primaria
+      - Localizzazione fine del dolore
+    - Paleospinotalamico || Origine da neuroni non specifici della lamina V (convergenti, polimodali, "wide dynamic range"). Fibre sottili, lente, multisinaptiche, senza somatotopia, in parte omolaterali (connessioni bilaterali).
+      - Formazione reticolare a tutti i livelli: veglia (SARA) e avvio del controllo discendente del dolore
+      - Nuclei intralaminari del talamo → corteccia frontale, cingolo, insula
+      - Dolore profondo, urente, cronico (componente "lenta")
+    - Archispinotalamico (il più antico)
+      - Formazione reticolare + grigio periacqueduttale → nuclei intralaminari
+      - Collaterali a ipotalamo e sistema limbico: reazioni viscerali, autonome ed emotive al dolore
+    - Contingente mediale del f. spinotalamico laterale || Proietta al nucleo centromediano (CM) del talamo; solo ~30% va dritto al talamo, ~70% fa tappa in formazione reticolare (f. spino-reticolare), PAG (f. spino-mesencefalico) e ipotalamo (f. spino-ipotalamico). Veicola informazioni nocicettive somatiche e viscerali.
+    - Lemnisco spinale = fasci spinotalamici + spinotettale
+  - Modulazione del dolore
+    - Teoria del cancello (Melzack e Wall, 1965) || Nel corno dorsale il "cancello" della trasmissione dolorifica può essere chiuso da: impulsi tattili dalla cute tramite fibre di grosso diametro; impulsi dalla formazione reticolare bulbare; impulsi dalla corteccia o dal talamo (controllo centrale).
+    - Vie discendenti inibitorie (oppioidi endogeni, rafe-spinale, PAG)
+  - Altri fasci ascendenti protopatici
+    - Spino-tettale (integrazione multisensoriale nel tetto)
+    - Spino-olivare (oliva inferiore)
+    - Spino-reticolare (formazione reticolare)
+  - Propriocezione incosciente: vie spinocerebellari || Vie ganglio-spino-cerebellari a 3 neuroni (ganglio → corno dorsale/bulbo → cervelletto). Non arrivano alla coscienza: informano il cervelletto per la coordinazione.
+    - Spinocerebellare dorsale: arto inf. e tronco basso; dal nucleo di Clarke; omolaterale; peduncolo inferiore
+    - Cuneo-cerebellare: arto sup. e tronco alto; dal nucleo cuneato laterale; peduncolo inferiore
+    - Spinocerebellare ventrale: dalla metà inferiore del corpo (fino a T6); peduncolo superiore || Detto "crociato": decussa nel midollo (commessura bianca) e di nuovo nel cervelletto, quindi alla fine informa sul lato omolaterale del corpo.
+    - Spinocerebellare rostrale (parte superiore) e cervicale (muscoli nucali)
+    - Fasci dai fusi (Ia: Clarke e cuneato laterale) vs dagli organi tendinei (Ib: lamine VI-VII → ventrale e rostrale) || I fasci dorsale e cuneo-cerebellare portano sensibilità dinamica e spazialmente definita (fusi); ventrale e rostrale riportano lo stato dei circuiti interneuronali del corno dorsale (archi riflessi), anticipando l'esecuzione del movimento.
+  - Sensibilità enterocettiva (viscerale)
+    - Protoneuroni: gangli spinali T, L, S; gangli petroso (IX) e nodoso (X)
+    - Vie polisinaptiche → formazione reticolare, ipotalamo, talamo (VM/intralaminari) → insula e corteccia orbitofrontale
+    - Prevalentemente pressoria (distensione) e dolorifica
+    - ⚕ Dolore riferito || Il dolore viscerale viene percepito in un dermatomero cutaneo perché afferenze viscerali e somatiche convergono sugli stessi neuroni del corno dorsale. Es. angina pectoris: dolore al braccio sinistro.
+- Sistemi motori
+  - Organizzazione generale
+    - Motoneurone superiore (corteccia) → motoneurone inferiore (tronco/midollo) → muscolo
+    - Livelli di controllo: midollo (riflessi), tronco, corteccia; modulazione da cervelletto e gangli della base
+  - Motoneuroni somatici (corno anteriore, lamina IX)
+    - α: fibre muscolari extrafusali (di lavoro)
+    - γ: fibre intrafusali del fuso neuromuscolare
+    - β: innervano sia fibre extrafusali che fusi (non sono viscerali)
+    - Unità motoria: motoneurone α + fibre che innerva
+    - Circuito γ || Il motoneurone γ contrae le fibre del fuso mantenendolo sensibile durante la contrazione; il fuso informa il midollo (fibre Ia) sullo stato del muscolo e il motoneurone α corregge. Serve a evitare risposte muscolari esagerate e a calibrare continuamente il tono.
+    - Somatotopia: mediali = muscoli assiali; laterali = muscoli distali; anteriori estensori, posteriori flessori
+    - Cellule di Renshaw: interneuroni inibitori ricorrenti
+    - Mediatore: acetilcolina (placca motrice)
+  - Via piramidale (corticospinale e corticonucleare)
+    - Origine: corteccia motoria (area 4, cellule giganti di Betz dello strato V) e altre aree
+    - Decorso: corona radiata → capsula interna → peduncoli cerebrali → piede del ponte → piramidi bulbari
+    - Decussazione delle piramidi (~80% delle fibre)
+      - Corticospinale laterale (crociato): muscoli distali, movimenti fini delle dita
+      - Corticospinale anteriore (diretto): decussa nel midollo; muscoli assiali
+    - Corticonucleare (corticobulbare): ai nuclei motori dei nervi cranici || Proiezioni prevalentemente bilaterali/crociate; fanno eccezione parte del nucleo del faciale (parte inferiore della faccia) e del nucleo dell'ipoglosso, che ricevono proiezioni solo crociate.
+    - Mielinizzazione tardiva; ⚕ segno di Babinski || Risposta anomala del riflesso cutaneo plantare: normale nel neonato (via piramidale non ancora mielinizzata), patologica nell'adulto (lesione corticospinale).
+  - Vie extrapiramidali (dal tronco)
+    - Rubrospinale (nucleo rosso magnocellulare) || Modula i flessori: facilita i movimenti dell'arto superiore e frena quelli degli inferiori. Insieme al corticospinale laterale controlla i movimenti delle estremità.
+    - Tettospinale (collicolo superiore): riflessi di orientamento di testa e collo a stimoli visivi/acustici improvvisi
+    - Vestibolospinale laterale (n. vestibolare laterale, diretto): motoneuroni estensori antigravitari
+    - Vestibolospinale mediale (nn. vestibolari mediale e inferiore): raddrizzamento della testa
+    - Reticolospinale laterale (bulbare) e mediale (pontino) || Entrambi parzialmente crociati: eccitano/inibiscono i motoneuroni assiali e modulano gli impulsi afferenti al corno dorsale.
+    - Funzione d'insieme: postura, muscolatura assiale, tono
+  - ⚕ Lesioni
+    - Motoneurone superiore: paralisi spastica, iperreflessia, Babinski
+    - Motoneurone inferiore: paralisi flaccida, ipo/areflessia, atrofia
+  - → Cervelletto
+  - → Gangli della base
+  - → Telencefalo › Aree corticali › Lobo frontale
+- Sistema nervoso autonomo
+  - Organizzazione generale
+    - Catena a 2 neuroni: pregangliare (SNC) → gangliare (ganglio vegetativo) → organo || Diverso dal somatico: il motoneurone viscerale non raggiunge l'organo, l'assone si ferma in un ganglio vegetativo (che contiene neuroni motori, non i pseudounipolari dei gangli sensitivi).
+    - Fibre pregangliari mieliniche (ramo comunicante bianco), postgangliari amieliniche (ramo grigio)
+    - Sinapsi en passant su muscolo liscio e ghiandole
+    - Controllo superiore: ipotalamo (neuroni premotori del SNA), formazione reticolare, corteccia
+  - Ortosimpatico (toraco-lombare)
+    - Pregangliari: colonna intermedio-laterale T1-L2
+    - Gangli paravertebrali (catena): fibre corte pregangliari, lunghe postgangliari
+      - Cervicali: superiore (testa), medio, inferiore/stellato
+    - Gangli prevertebrali: celiaco, aorticorenali, mesenterici superiore e inferiore
+    - Mediatori: ACh pregangliare; noradrenalina postgangliare || Eccezione: ghiandole sudoripare (solo ortosimpatico) usano ACh postgangliare.
+    - Midollare del surrene: solo ortosimpatico, riceve direttamente fibre pregangliari
+    - ⚕ Sindrome di Bernard-Horner || Lesione dell'ortosimpatico cervicale: ptosi palpebrale, miosi (prevale il parasimpatico) dal lato colpito.
+  - Parasimpatico (cranio-sacrale)
+    - Craniale: nuclei di Edinger-Westphal (III), salivatorio sup. e lacrimale (VII), salivatorio inf. (IX), motore dorsale del vago (X)
+    - Sacrale: neuromeri sacrali → gangli pelvici
+    - Gangli vicino o dentro l'organo: pregangliari lunghe, postgangliari corte
+      - Ciliare (III), pterigopalatino e sottomandibolare (VII), otico (IX), intramurali (X)
+    - Mediatore: ACh sia pre che postgangliare
+  - Metasimpatico (enterico)
+    - Plessi mioenterico (Auerbach) e sottomucoso (Meissner) nella parete del canale alimentare
+    - Riceve postgangliari ortosimpatiche e pregangliari parasimpatiche; ha anche circuiti propri
+  - Effetti antagonisti orto/para
+    - Occhio: orto midriasi (dilatatore); para miosi (sfintere) e accomodazione
+    - Ghiandole salivari e lacrimale: para secrezione abbondante; orto secrezione scarsa/densa
+    - Cuore: orto ↑ frequenza e forza; para (vago) ↓ frequenza
+    - Apparato digerente: para ↑ peristalsi e secrezioni; orto ↓ e contrazione sfinteri
+    - Vescica: para contrae il detrusore (minzione); orto rilascia detrusore e contrae sfintere interno
+    - Apparato riproduttore: para erezione; orto eiaculazione
+  - Riflessi autonomi || Neuroni afferenti → interneuroni nel SNC → neuroni visceroeffettori (circuiti polisinaptici). Stimolo viscerale o somatico (es. nocicettivo) → risposta autonoma (vasi, frequenza cardiaca).
+  - → Diencefalo › Ipotalamo › Funzioni
+- Tronco encefalico
+  - Componenti e posizione
+    - Midollo allungato o bulbo (mielencefalo)
+    - Ponte di Varolio (metencefalo)
+    - Mesencefalo
+    - Dorsalmente: cervelletto e IV ventricolo; veli midollari superiore e inferiore
+  - Conformazione esterna: superficie ventrale
+    - Bulbo: piramidi, decussazione delle piramidi, olive (solco preolivare: XII; retroolivare: IX, X, XI)
+    - Ponte: solco basilare (a. basilare), peduncoli cerebellari medi; emergenza del V
+    - Solco bulbo-pontino: VI, VII, VIII
+    - Mesencefalo: peduncoli cerebrali, fossa interpeduncolare (emergenza del III)
+  - Conformazione esterna: superficie dorsale
+    - Bulbo chiuso: tubercoli gracile e cuneato
+    - Pavimento del IV ventricolo (fossa romboidale) || Repere: trigono dell'ipoglosso, trigono del vago, area vestibolare, collicolo del faciale (sopra il ginocchio interno del VII), strie midollari che lo percorrono trasversalmente.
+    - Mesencefalo: lamina quadrigemina (collicoli sup. e inf.); emergenza dorsale del IV (unico nervo dorsale)
+  - Organizzazione interna
+    - Tegmento o calotta: nuclei dei nervi cranici, formazione reticolare (parte più antica)
+    - Piede/parte basale: vie discendenti (piramidi, piede del ponte, peduncoli cerebrali)
+    - Tetto (mesencefalo): collicoli
+    - Decussazioni frammentano la sostanza grigia in nuclei || Nel tronco la grigia non è continua come nel midollo: le fibre che si incrociano a vari livelli (piramidi, lemnisco mediale) la spezzano in colonne e nuclei.
+    - Fasci in transito: piramidale, lemnisco mediale, spinotalamici, fascicolo longitudinale mediale
+  - Nuclei propri del bulbo
+    - Nuclei gracile e cuneato (→ lemnisco mediale); n. cuneato laterale (→ cervelletto)
+    - Nucleo olivare inferiore: origina le fibre rampicanti per il cervelletto
+    - Area postrema: centro emetico; connessa con il nucleo del tratto solitario
+  - Nuclei propri del ponte
+    - Nuclei basilari del ponte: robusta proiezione controlaterale al cervelletto (peduncolo medio)
+    - Locus coeruleus (noradrenergico) || Insieme al grigio periventricolare pontino modula l'eccitabilità di altri sistemi di proiezione: attenzione, allerta, ciclo sonno-veglia. Proietta diffusamente all'encefalo.
+    - Nucleo olivare superiore (via acustica)
+  - Nuclei propri del mesencefalo
+    - Sostanza nera || Pars compacta: neuroni dopaminergici (neuromelanina) → proiezione nigrostriatale (striato, pallido, subtalamo): pianificazione ed esecuzione motoria. Pars reticulata: GABAergica, uscita dei gangli della base. ⚕ La degenerazione dei neuroni dopaminergici dà il Parkinson.
+    - Area tegmentale ventrale (VTA) || Dopaminergica: proiezioni mesolimbica e mesotelencefalica (nucleo accumbens, corteccia prefrontale) per motivazione, ricompensa (reward), dipendenza da droghe.
+    - Nucleo rosso || Parte magnocellulare: origine del fascio rubro-spinale (modula i flessori). Parte parvocellulare: origine del fascio rubro-olivare; connessa al cervelletto (triangolo di Guillain-Mollaret).
+    - Grigio periacqueduttale (PAG): controllo discendente del dolore
+    - Collicoli superiori (vista, tettospinale) e inferiori (via acustica); nuclei pretettali (riflesso pupillare)
+  - Formazione reticolare
+    - Rete di neuroni lungo tutto il tronco (continua nel midollo)
+    - Zone longitudinali
+      - Mediana: nuclei del rafe (serotoninergici)
+      - Mediale (magnocellulare/gigantocellulare): origine delle vie reticolospinali
+      - Laterale (parvocellulare): afferenze, interneuroni
+    - Nuclei del rafe (gruppi B1-B9) || Gruppi rostrali → prosencefalo (fascicolo prosencefalico mediale): emozioni, ipotalamo, sonno REM. Gruppi caudali → midollo (fascio rafe-spinale): inibiscono le afferenze dolorifiche e facilitano i motoneuroni. Gruppi centrali → tronco e cervelletto.
+    - Anatomia funzionale
+      - Generatori di schemi motori: centri dello sguardo, sopratrigeminale, deglutizione, vomito, tosse, starnuto, minzione
+      - Respirazione: nuclei respiratori ventrale e dorsale, parabrachiale mediale
+      - Controllo cardiovascolare (centro vasomotore bulbare)
+      - SARA: sistema reticolare attivatore ascendente (sonno-veglia) || Neuroni noradrenergici, colinergici e reticolari del gruppo centrale proiettano a talamo e corteccia mantenendo lo stato di veglia e la coscienza.
+      - Vie reticolospinali: modulazione dell'apparato motore spinale
+- Nervi cranici e loro nuclei
+  - Nervi cranici vs spinali
+    - 12 paia; 10 originano dal tronco (I telencefalo, II diencefalo)
+    - Non tutti misti: solo V, VII, IX, X hanno componenti multiple sensitive e motrici; VIII sensitivo puro
+    - Criteri di classificazione: anatomico, embriologico (branchiomerici), omologie, funzionale
+  - Componenti funzionali || Ai 4 tipi di fibre dei nervi spinali (GSA, GVA, GVE, GSE) si aggiungono 3 componenti speciali: SSA, SVA, SVE.
+    - GSA: afferente somatica generale (cute, mucose)
+    - GVA: afferente viscerale generale (visceri)
+    - SSA: afferente somatica speciale (vista, udito, equilibrio)
+    - SVA: afferente viscerale speciale (olfatto, gusto)
+    - GSE: effettrice somatica generale (muscoli da miotomi: lingua, occhio)
+    - SVE: effettrice viscerale speciale o branchiale (muscoli degli archi branchiali)
+    - GVE: effettrice viscerale generale (parasimpatico cranico)
+  - Organizzazione colonnare dei nuclei || I nuclei sono colonne cellulari a disposizione medio-laterale (motori mediali, sensitivi laterali, come lamine del midollo "aperte" dal IV ventricolo). Un nucleo può servire più nervi; un nervo con più componenti è connesso con più colonne.
+    - Nuclei motori = lamine VII-IX del corno anteriore; nuclei sensitivi = lamine del corno posteriore
+    - Origine reale: nuclei motori (motori); gangli sensitivi annessi a V, VII, VIII, IX, X (sensitivi)
+    - Nuclei condivisi
+      - Nucleo spinale del trigemino: GSA di V, VII, IX, X
+      - Nucleo del tratto solitario: GVA e SVA (gusto) di VII, IX, X
+      - Nucleo ambiguo: SVE di IX e X
+  - Archi branchiali e nervi || Gli archi sono 6 (il 5° rudimentale nell'uomo); i muscoli di ciascun arco sono innervati dal nervo del proprio arco (componente SVE).
+    - 1° arco (mandibolare) → V: masticatori, ventre ant. digastrico, miloioideo, tensore del timpano, tensore del velo palatino
+    - 2° arco (ioideo) → VII: mimici, ventre post. digastrico, stilioideo, stapedio
+    - 3° arco → IX: stilofaringeo
+    - 4° e 6° arco → X: palato (tranne tensore), faringe (tranne stilofaringeo), laringe
+  - XII Ipoglosso
+    - GSE: muscoli intrinseci ed estrinseci della lingua
+    - Nucleo nel trigono dell'ipoglosso; emerge dal solco preolivare; anastomosi con C1-C2
+    - ⚕ Lesione motoneurone inferiore || Paralisi flaccida e atrofia omolaterale della lingua; in protrusione la lingua devia verso il lato leso.
+  - XI Accessorio
+    - Componente spinale: sternocleidomastoideo e trapezio (dal miotomo)
+    - Componente bulbare (con il vago): muscoli di palato molle, faringe, laringe, esofago superiore
+    - ⚕ Lesione isolata: paralisi del trapezio (2/3 sup.) e caduta della spalla
+  - X Vago
+    - GSA: piccolo territorio del padiglione e meato acustico esterno
+    - GVA: ipofaringe, laringe, cuore, visceri toraco-addominali, barocettori/chemocettori aortici (ganglio nodoso)
+    - SVA: calici gustativi dell'epiglottide
+    - SVE (nucleo ambiguo): palato molle, faringe, laringe, esofago superiore
+    - GVE (nucleo motore dorsale): gangli intramurali di cuore, polmoni, tubo digerente
+    - ⚕ Lesione unilaterale || Difficoltà a tossire e deglutire; arco palatino pendulo dal lato leso; in fonazione l'ugola devia verso il lato sano.
+    - ⚕ Lesione bilaterale: disfagia (rigurgito nasale), voce nasale, respirazione orale, russamento
+  - IX Glossofaringeo
+    - GSA: padiglione, meato acustico esterno, cavità timpanica, tuba
+    - GVA: terzo posteriore della lingua, fauci, faringe, tonsille; seno e glomo carotideo (ganglio petroso)
+    - SVA: gusto del terzo posteriore della lingua
+    - SVE: stilofaringeo (e costrittore superiore della faringe)
+    - GVE (salivatorio inferiore → ganglio otico): parotide
+    - ⚕ Riflesso faringeo: stimolo della parete faringea → contrazione del costrittore (± conato)
+    - ⚕ Sindrome del forame giugulare (Vernet) || Interessa IX, X, XI: dolore all'orecchio, emianestesia gustativa, voce roca, disfagia, paralisi di costrittore faringeo, palato, laringe, trapezio e sternocleidomastoideo; incapacità di addurre le corde vocali.
+  - Nucleo del tratto solitario e riflessi viscerali
+    - Parte rostrale: gusto (SVA da VII, IX, X)
+    - Parte intermedia e caudale: sensibilità viscerale generale
+    - Riflesso barovagale cardioinibitore || Seno carotideo → ganglio petroso (IX) → n. tratto solitario → nucleo motore dorsale del vago → gangli intramurali del cuore → ↓ frequenza cardiaca.
+    - Riflesso barosimpatico || N. tratto solitario → neuroni inibitori del centro vasomotore depressore bulbare → ↓ attività del nucleo intermedio-laterale → meno tono simpatico alle arteriole → ↓ resistenza periferica.
+    - Connessione con l'ipotalamo (fascicolo longitudinale dorsale)
+  - Gusto (via gustativa) || Via viscerosensitiva speciale ascendente.
+    - Papille: circumvallate, fungiformi, foliate (gustative); filiformi (tattili)
+    - Calici gustativi: cellule recettoriali innervate da VII (2/3 ant.), IX (1/3 post.), X (epiglottide)
+    - N. tratto solitario (rostrale) → talamo VPM → insula (area 43) + corteccia orbitofrontale (aspetti soggettivi)
+  - VII Faciale (+ nervo intermedio di Wrisberg)
+    - SVE: muscoli mimici, stapedio, stilioideo, ventre post. digastrico
+    - GVE (salivatorio sup. e lacrimale): gh. sottomandibolare, sottolinguale, lacrimale, mucose nasali e orali
+    - SVA (ganglio genicolato): gusto dei 2/3 anteriori della lingua
+    - GSA: cute dell'orecchio esterno
+    - Ginocchio interno attorno al nucleo dell'abducente (collicolo del faciale)
+    - ⚕ Paralisi centrale vs periferica || Centrale (sopranucleare, es. ictus): colpisce solo la metà inferiore della faccia controlaterale, perché il nucleo per la fronte riceve fibre da entrambi gli emisferi. Periferica (nervo, es. paralisi di Bell): tutta l'emifaccia omolaterale.
+    - ⚕ Sintomi della lesione del nervo: paralisi, alterazioni della lacrimazione, dolore retroauricolare, disgeusia, iperacusia (stapedio)
+    - ⚕ Lacrime di coccodrillo || In fase di recupero le fibre salivatrici in rigenerazione si dirigono per errore alla ghiandola lacrimale: mangiando si lacrima dal lato colpito.
+  - V Trigemino
+    - GSA: faccia, cavità orale e nasale, denti, meningi (ganglio di Gasser)
+    - Nuclei sensitivi
+      - Mesencefalico: propriocezione dei muscoli masticatori || Eccezione: è un nucleo del SNC che si comporta come un ganglio sensitivo (contiene i corpi dei protoneuroni propriocettivi).
+      - Sensitivo principale (ponte): tatto epicritico → lemnisco trigeminale
+      - Spinale (pars oralis, interpolaris, caudalis): dolore e temperatura || Si estende dal ponte fino ai primi neuromeri cervicali, in continuità con il corno posteriore. La pars caudalis arriva fino alla decussazione delle piramidi.
+      - Via → talamo VPM → corteccia somatosensitiva
+    - Nucleo sopratrigeminale (formazione reticolare): controllo riflesso dei muscoli masticatori
+    - SVE (nucleo motore): masticatori, ventre ant. digastrico, miloioideo, tensori di timpano e velo
+    - ⚕ Nevralgia del trigemino (tic douloureux), cefalee, herpes zoster
+  - VIII Vestibolo-cocleare (stato-acustico)
+    - SSA: componente vestibolare (ganglio di Scarpa) e cocleare (ganglio spirale)
+    - → Organi di senso › Udito
+    - → Organi di senso › Equilibrio
+  - Nervi per i muscoli estrinseci dell'occhio
+    - III Oculomotore (mesencefalo, collicoli superiori)
+      - Subnuclei GSE: retto superiore (crociato), retto mediale, retto inferiore, obliquo inferiore; elevatore della palpebra (nucleo unico bilaterale)
+      - GVE: nucleo di Edinger-Westphal → ganglio ciliare → sfintere della pupilla e muscolo ciliare
+    - IV Trocleare (mesencefalo, collicoli inferiori)
+      - Obliquo superiore; unico nervo a emergenza dorsale e completamente crociato
+    - VI Abducente (ponte): retto laterale
+      - ⚕ Paralisi: diplopia, occhio deviato medialmente
+    - Azioni dei muscoli estrinseci || Retto laterale (VI): abduce. Retto mediale (III): adduce. Retto superiore (III): eleva, adduce, intorsione. Retto inferiore (III): deprime, adduce, estorsione. Obliquo superiore (IV): deprime, abduce, intorsione. Obliquo inferiore (III): eleva, abduce, estorsione.
+    - Movimenti coniugati || All'azione di un muscolo si affiancano: sinergista controlaterale, antagonista omolaterale e antagonista controlaterale (movimenti solidali e sincroni).
+    - Centri dello sguardo (formazione reticolare)
+      - Orizzontale: formazione reticolare pontina paramediana (FRPP)
+      - Verticale: nucleo interstiziale rostrale del fascicolo longitudinale mediale
+      - Nucleo interstiziale di Cajal: inseguimento fluido, mantenimento dello sguardo verticale
+      - Fascicolo longitudinale mediale: collega i nuclei III, IV, VI e vestibolari
+    - Riflesso pupillare alla luce || Retina → nucleo pretettale → Edinger-Westphal di entrambi i lati → ganglio ciliare → sfintere della pupilla: miosi diretta e consensuale.
+    - Riflesso di convergenza-accomodazione || Per la visione da vicino: convergenza (retti mediali), accomodazione (contrazione del muscolo ciliare → cristallino più convesso) e miosi.
+- Organi di senso e vie sensoriali speciali
+  - Udito
+    - Orecchio esterno: padiglione e condotto uditivo, fino al timpano
+      - Innervazione: auricolo-temporale (V), rami di X, IX (+VII), grande auricolare, occipitale
+    - Orecchio medio (cavità del timpano)
+      - Pareti: tetto (tegmen, recesso epitimpanico), pavimento (giugulare), laterale (timpano), mediale (labirintica, promontorio), anteriore (tuba), posteriore (eminenza piramidale, corda del timpano)
+      - Ossicini: martello, incudine, staffa || Funzionano da adattatori di impedenza (passaggio dell'onda dall'aria al liquido) e amplificano il segnale.
+      - Muscoli tensore del timpano (V) e stapedio (VII): riducono le oscillazioni a bassa frequenza (protezione)
+    - Orecchio interno (labirinto osseo e membranoso)
+      - Coclea: scala vestibolare, condotto cocleare, scala timpanica
+      - Perilinfa (scale, ~0 mV) ed endolinfa (condotto cocleare, +80 mV, ricca di K⁺) || Il potenziale endococleare positivo crea una forte differenza elettrica con le cellule ciliate: è la "batteria" della trasduzione uditiva.
+      - Organo di Corti sulla membrana basilare; membrana tettoria
+      - Cellule acustiche interne (afferenti radiali, efferenti laterali) ed esterne (afferenti spirali, efferenti mediali)
+    - Via acustica ascendente || Ganglio spirale → nuclei cocleari (ventrale e dorsale) → corpo trapezoide/nuclei olivari superiori → lemnisco laterale → collicolo inferiore → braccio congiuntivo inferiore → corpo genicolato mediale → radiazione acustica (capsula interna, sottolenticolare) → aree 41-42. Proiezione bilaterale.
+      - Nucleo olivare superiore: neuroni biaurali per localizzare il suono || Mediale: differenza di latenza (tempo) tra le due orecchie. Laterale: differenza di intensità. Le differenze sono amplificate da inibizione crociata.
+      - Riflessi acustici: formazione reticolare → tensore del timpano e stapedio
+    - Vie acustiche discendenti: dal nucleo olivare superiore e dalla formazione reticolare → fibre efferenti laterali (cellule interne) e mediali (cellule esterne)
+    - ⚕ Sordità da conduzione (otosclerosi, otite media) vs neurosensoriale; neuroma dell'VIII
+  - Equilibrio (apparato vestibolare)
+    - Funzioni: postura ed equilibrio, stabilizzazione dello sguardo, senso del movimento
+    - Labirinto: utricolo, sacculo, canali semicircolari (gangli di Scarpa sup. e inf.)
+    - Macule (utricolo orizzontale, sacculo verticale) || Rispondono all'accelerazione lineare (deambulazione, ascensore, gravità): equilibrio statico. Le otoconie e la striola separano cellule cigliate con chinociglio orientato in senso opposto.
+    - Creste ampollari dei canali semicircolari || Rispondono all'accelerazione angolare (rotazioni della testa, "sì" e "no"): equilibrio dinamico. Canale laterale orizzontale; anteriore di un lato complanare al posteriore controlaterale.
+    - Cellule cigliate tipo I e II; duplice innervazione afferente ed efferente
+    - Quattro nuclei vestibolari (superiore, laterale, mediale, inferiore)
+    - Vie vestibolari centrali
+      - Vestibolo-cerebellari (vestibolocerebello)
+      - Vestibolo-talamo-corticale (percezione cosciente)
+      - Ascendenti vestibolo-oculomotrici (fascicolo longitudinale mediale): riflesso vestibolo-oculare
+      - Discendenti vestibolospinali laterale e mediale
+    - ⚕ Vertigine, chinetosi, nistagmo, sindrome vestibolare uni/bilaterale || Nella sindrome bilaterale i pazienti non camminano al buio (manca anche il compenso visivo).
+  - Vista
+    - Bulbo oculare: segmento anteriore e posteriore; origine diencefalica (vescicola ottica)
+    - Orbita: anello tendineo comune di Zinn (origine dei retti) || Circonda il nervo ottico, i rami del III, il nasociliare e il VI.
+    - Tonache
+      - Fibrosa: cornea (avascolare, ricca di terminazioni libere) e sclera
+        - Limbus: nicchia di cellule staminali della cornea || Fanno da barriera contro l'epitelio congiuntivale; se deplete la cornea si "congiuntivizza" e si vascolarizza, con calo del visus.
+      - Vascolare (uvea): coroide, corpo ciliare, iride
+        - Funzioni: accesso dei vasi, regolazione luce (iride), produzione umor acqueo, forma della lente
+        - Corpo ciliare: corona e orbicolo; muscolo ciliare (accomodazione); zonula
+        - ⚕ Sindrome di Marfan: alterazione della zonula → sublussazione del cristallino
+      - Nervosa (retina): parte ottica e parte cieca (ciliare, iridea)
+        - Fotorecettori: coni (luce intensa, colori R-V-B) e bastoncelli (luce debole)
+        - Cellule bipolari (ON/OFF), gangliari, orizzontali, amacrine
+        - Fovea/macula (massima acuità), papilla ottica (punto cieco)
+        - Cellule gangliari a melanopsina: funzioni non visive (ritmo circadiano)
+    - Umor acqueo e angolo irido-corneale
+      - Deflusso: trabecolare (85%, canale di Schlemm), uveosclerale (14%), transiridea (1%)
+      - ⚕ Glaucoma ad angolo aperto e chiuso || L'angolo irido-corneale è un punto critico per la pressione endooculare: se il deflusso è ostacolato la pressione sale e danneggia il nervo ottico.
+    - Apparato diottrico: cornea, umor acqueo, cristallino, corpo vitreo
+    - Vascolarizzazione: vasi ciliari (sclera, uvea; vene vorticose) e vasi centrali della retina (a. oftalmica)
+    - Organi accessori: sopracciglia, palpebre (tarsi, gh. di Meibomio), congiuntiva, apparato lacrimale (ghiandola, condotti, sacco, condotto naso-lacrimale)
+    - Vie ottiche
+      - Nervo ottico → chiasma (si incrociano le fibre della retina nasale) → tratto ottico
+      - Corpo genicolato laterale (6 strati) || Strati 1-2 magnocellulari (movimento, profondità; dai bastoncelli); 3-6 parvocellulari (forma, colore; coni R/V); koniocellulari intralaminari (contrasto giallo-blu). Strati 1, 4, 6: retina temporale omolaterale; 2, 3, 5: retina nasale controlaterale.
+      - Radiazioni ottiche (retrolenticolari; ansa di Meyer nel lobo temporale) → area 17
+      - Proiezioni non genicolate: pulvinar, soprachiasmatico (ritmo), pretettale (riflesso pupillare), collicolo superiore, formazione reticolare
+      - ⚕ Deficit del campo visivo || Si nominano in base al campo visivo perso, non alla retina lesa. Lesione del chiasma: emianopsia eteronima bitemporale. Lesione di tratto/radiazioni/corteccia: emianopsia omonima controlaterale. Quadrantopsia: perdita di un quarto del campo.
+      - ⚕ Visione cieca (blindsight): risposte visive senza percezione cosciente
+  - Olfatto
+    - Mucosa olfattiva: neuroni olfattivi bipolari (I nervo, SVA) attraverso la lamina cribrosa
+    - Bulbo olfattivo: glomeruli (assoni olfattivi + dendriti di cellule mitrali e a pennacchio + interneuroni)
+    - Tratto e strie olfattive (laterale, intermedia, mediale); trigono e tubercolo olfattivo
+    - Corteccia olfattiva primaria (piriforme dell'uncus), entorinale, nucleo corticale dell'amigdala
+    - Unica sensibilità che non passa obbligatoriamente dal talamo (accesso diretto alla corteccia) || Una via secondaria raggiunge il nucleo dorsomediale del talamo e la corteccia orbitofrontale (gnosie olfattive). Le connessioni con il sistema limbico spiegano il legame odori-emozioni-memoria.
+    - Commessura anteriore: collega i due bulbi/cortecce olfattive
+- Cervelletto
+  - Posizione e rapporti
+    - Fossa cranica posteriore, dorsale a ponte e bulbo (tetto del IV ventricolo), sotto il tentorio
+    - Connesso al tronco da 3 paia di peduncoli
+  - Conformazione esterna
+    - Verme (mediano) ed emisferi; solchi e lamelle (folia)
+    - Lobi: anteriore, posteriore (scissura primaria), flocculo-nodulare (scissura posterolaterale)
+    - Tonsille cerebellari (⚕ erniazione nel forame magno, es. Arnold-Chiari)
+  - Sostanza grigia
+    - Corteccia superficiale omogenea a 3 strati
+    - Nuclei profondi (medio-laterale): fastigio (tetto), globoso, emboliforme, dentato
+  - Suddivisioni funzionali (3 criteri)
+    - Filogenesi: archi-, paleo-, neocerebello
+    - Afferenze: vestibolo-, spino-, pontocerebello
+    - Efferenze: verme, zona paravermiana, emisferi laterali
+  - Corteccia cerebellare
+    - Strato molecolare: cellule stellate e dei canestri (inibitorie), fibre parallele, glia di Bergmann
+    - Strato delle cellule del Purkinje: unica efferenza della corteccia, GABAergica
+    - Strato dei granuli: granuli (unici eccitatori, glutammato), cellule di Golgi; glomeruli cerebellari
+    - Fibre afferenti
+      - Muscoidi (da tutte le fonti tranne l'oliva) → granuli → fibre parallele → Purkinje
+      - Rampicanti (dall'oliva inferiore) → direttamente sul Purkinje
+      - Entrambe danno collaterali eccitatorie ai nuclei profondi
+    - Logica del circuito || Le afferenze eccitano i nuclei profondi; la corteccia, tramite il Purkinje (inibitorio), "scolpisce" questa eccitazione. Cellule dei canestri e stellate creano inibizione laterale (contrasto); le cellule di Golgi regolano l'ingresso ai granuli.
+  - Peduncoli cerebellari
+    - Inferiore (→ bulbo): afferenze vestibolari, olivari (rampicanti), spinocerebellare dorsale, cuneo-cerebellare, reticolo-cerebellari; efferenze fastigio-bulbari
+    - Medio (→ ponte): solo afferenze dai nuclei basilari del ponte (ponto-cerebellari)
+    - Superiore (→ mesencefalo): soprattutto efferenze (cerebello-rubre, cerebello-talamiche); afferenze spinocerebellare ventrale e rostrale, trigemino-cerebellare
+  - Vestibolocerebello (archicerebello)
+    - Lobo flocculo-nodulare (+ verme) e nucleo del fastigio
+    - Equilibrio, postura, movimenti oculari
+  - Spinocerebello (paleocerebello)
+    - Corteccia paramediana del lobo anteriore; nuclei globoso ed emboliforme → nucleo rosso
+    - Postura, andatura, esecuzione e coordinazione dei movimenti
+    - ⚕ Disfunzione: marcia a base allargata, atassia del tronco
+  - Pontocerebello (neocerebello)
+    - Lobo posteriore degli emisferi; nucleo dentato → talamo VL → corteccia motoria
+    - Pianificazione e inizio dei movimenti volontari
+    - Fascio fronto-pontino (Arnold): copia del progetto di movimento
+    - Fascio parieto-temporo-occipito-pontino (Türk): contesto spaziale del movimento
+    - Cervelletto come comparatore || Confronta il programma corticale (intenzione) con l'esecuzione periferica (informazioni propriocettive) e corregge forza, direzione e ampiezza dei movimenti.
+    - ⚕ Disfunzioni: tremore intenzionale, dismetria, asinergia, disdiadococinesia, disartria || Test: indice-naso e tallone-ginocchio (dismetria); "avvitare le lampadine" o battere alternativamente palmo e dorso sulla coscia (disdiadococinesia).
+  - Triangolo di Guillain-Mollaret || Circuito a feedback cervelletto (dentato) → nucleo rosso controlaterale → oliva inferiore (tratto tegmentale centrale) → cervelletto. ⚕ Lesioni: mioclonia ritmica del velo palatino.
+  - Ruolo nell'apprendimento motorio
+- Diencefalo
+  - Organizzazione generale
+    - Attorno al III ventricolo; tra telencefalo e mesencefalo
+    - Solco ipotalamico: parte dorsale (talamo, epitalamo) e ventrale (subtalamo, ipotalamo)
+    - Veduta ventrale: chiasma ottico, tuber cinereum, infundibolo, corpi mammillari
+    - Limite laterale: capsula interna (separa dai nuclei della base)
+    - III ventricolo: pareti, adesione intertalamica, recessi; forami di Monro
+  - Talamo
+    - Rapporti || Faccia superiore: pavimento del ventricolo laterale (lamina affixa, plesso corioideo), lateralmente nucleo caudato, vena talamostriata e stria terminale. Mediale: parete del III ventricolo (adesione intertalamica, stria midollare). Laterale: capsula interna. Inferiore: subtalamo e ipotalamo.
+    - Ruoli: sensitivo (tutte le sensibilità tranne l'olfatto), motorio, emozione/memoria, vegetativo/vigilanza
+    - Nuclei specifici (palliotalamo) e aspecifici (troncotalamo) || Specifici: proiettano ad aree corticali definite. Aspecifici (intralaminari, linea mediana, reticolare): connessioni diffuse, vigilanza e attivazione.
+    - Lamina midollare interna a "Y" divide i gruppi nucleari
+    - Gruppo anteriore: circuito di Papez (dal fascio mammillo-talamico → cingolo); reazioni vegetative
+    - Gruppo mediale (dorsomediale): emozioni, pensiero, giudizio → corteccia prefrontale || Afferenze: globo pallido, nucleo basale di Meynert, ipotalamo, amigdala. ⚕ La lesione provoca appiattimento della personalità.
+    - Nuclei della linea mediana: memoria e risveglio; umore affettivo basale
+    - Nuclei intralaminari (centromediano) || Il più grosso del troncotalamo. Riceve da formazione reticolare, paleocervelletto, globo pallido, compartimento mediale dello spinotalamico; proietta allo striato e alle aree limbiche (aspetti soggettivi del dolore lento).
+    - Nucleo reticolare: GABAergico, avvolge il talamo; "cataloga" le informazioni nuove
+    - Gruppo laterale dorsale (LD, LP, pulvinar): integrazione → lobo parietale
+    - Gruppo ventrale
+      - VA: circuiti extrapiramidali (dai gangli della base → premotoria/supplementare); stazione del SARA
+      - VL: dal globo pallido e dal cervelletto (dentato) → corteccia motoria primaria e supplementare
+      - VPL: lemnisco mediale + spinotalamici → corteccia somatosensitiva primaria
+      - VPM: lemnisco trigeminale + via gustativa
+    - Radiazioni talamo-corticali (peduncoli talamici)
+  - Metatalamo
+    - Corpo genicolato mediale: stazione della via acustica → corteccia uditiva
+    - Corpo genicolato laterale: stazione della via ottica → corteccia visiva
+  - Epitalamo
+    - Nuclei dell'abenula || Mediale: dal setto → nucleo interpeduncolare (controlla i nuclei monoaminergici; olfatto e assunzione di cibo). Laterale: da corteccia, ipotalamo, pallido → inibisce dopaminergici (SNc, VTA) e serotoninergici: elabora informazioni negative (delusione, punizione, dolore).
+    - Stria midollare, commessure abenulare e posteriore
+    - Epifisi (ghiandola pineale)
+      - Pinealociti; melatonina in circolo e nel liquor; corpora arenacea (calcificazioni)
+      - Funzione antigonadotropa || ⚕ La sua ablazione comporta macrogenitosomia precoce (sviluppo eccessivo dei genitali e dei caratteri sessuali secondari).
+      - Sintesi della melatonina (al buio) || Retina → n. soprachiasmatico → n. paraventricolare → midollo (T1-L2) → ganglio cervicale superiore → noradrenalina sui pinealociti (recettori β, AMPc) → triptofano → serotonina → N-acetilserotonina → melatonina.
+  - Subtalamo
+    - Nucleo subtalamico di Luys (circuito indiretto dei gangli della base)
+    - Zona incerta; nuclei e campi di Forel (H, H1, H2) || Campi "cappuccio": vi passano ansa lenticolare e fascio lenticolare dal globo pallido, che si uniscono nel fascicolo talamico verso i nuclei ventrali del talamo.
+    - ⚕ Lesione: ballismo/emiballismo
+  - Ipotalamo
+    - Regioni: chiasmatica (anteriore), tuberale (media), mammillare (posteriore); zone periventricolare, mediale, laterale
+    - Sostanza bianca
+      - Fornice → corpi mammillari
+      - Tratto mammillo-talamico (→ nuclei anteriori) e mammillo-tegmentale
+      - Fascicolo prosencefalico mediale: collega ipotalamo, sistema limbico e formazione reticolare
+      - Fascicolo longitudinale dorsale di Schütz: verso il tronco
+    - Funzioni
+      - Controllo del SNA || Nuclei anteriori → parasimpatico (fascicolo longitudinale dorsale, formazione reticolare). Nucleo mammillare mediale → ortosimpatico (fascicolo mammillo-tegmentale, proiezioni polisinaptiche al corno laterale).
+      - Neuroipofisi: sistema ipotalamo-ipofisario || Neuroni magnocellulari dei nuclei sopraottico e paraventricolare producono ossitocina (contrazione uterina) e vasopressina/ADH (equilibrio idrosalino); trasporto assonale alla neuroipofisi e rilascio nei capillari fenestrati.
+      - Adenoipofisi: sistema tubero-infundibolare e portale || Nuclei tuberali (arcuato/infundibolare, ventromediale, dorsomediale) liberano releasing/inhibiting factors nell'eminenza mediana; il sistema portale ipotalamo-ipofisario (capillari → vena porta → capillari) li porta all'adenoipofisi. ⚕ Sindrome di Sheehan: necrosi ipofisaria post-partum.
+      - Ritmo circadiano: nucleo soprachiasmatico ("master clock") || Riceve dalla retina (cellule a melanopsina) e regola l'epifisi; i suoi neuroni esprimono "cronoproteine". La luce notturna resetta l'orologio.
+      - Veglia: nucleo tuberomammillare (unico sito di istamina) attivato dall'orexina || ⚕ Carenza di orexina (prodotta dall'ipotalamo laterale) = narcolessia.
+      - Termoregolazione: anteriori dissipano calore (sudorazione), posteriori lo conservano
+      - Assunzione di cibo: laterali la stimolano, ventromediali la inibiscono (sazietà) || Segnali periferici: leptina (riserve adipose stabili), insulina (pasto recente). Nucleo arcuato → paraventricolare/laterale/VTA/n. solitario: segnali orexigenici e anorexigenici, aspetti edonici e avversivi.
+      - Comportamento aggressivo (area dorsale, ventromediale)
+      - Interazione con il sistema limbico (corpi mammillari, fornice, amigdala)
+      - Neuroimmunomodulazione: neuro-ormoni su organi linfoidi; asse dello stress (CRH → ACTH)
+- Telencefalo
+  - Conformazione esterna
+    - Due emisferi separati dalla scissura interemisferica (falce), uniti dal corpo calloso
+    - Scissure: centrale di Rolando, laterale di Silvio, parieto-occipitale, calcarina
+    - Lobi: frontale, parietale, temporale, occipitale, insula, limbico
+    - Facce: laterale (convessa), mediale, inferiore
+    - Corpo calloso: rostro, ginocchio, tronco, splenio
+  - Conformazione interna
+    - Corteccia cerebrale, sostanza bianca (centro ovale), ventricoli laterali, nuclei della base
+    - Sezioni orizzontali e coronali: rapporti di caudato, putamen, pallido, talamo, capsule
+  - Corteccia: tipi
+    - Neocortex o isocortex (6 strati, neopallio)
+      - Omotipica (6 strati evidenti, associativa)
+      - Eterotipica granulare/coniocorteccia (sensitive primarie: 3,1,2; 17; 41)
+      - Eterotipica agranulare (motoria: area 4)
+    - Paleocortex o mesocortex (4 strati, paleopallio): corteccia olfattiva
+    - Archicortex o allocortex (3 strati, archipallio): ippocampo
+  - Corteccia: strati dell'isocortex
+    - I molecolare, II granulare esterno, III piramidale esterno, IV granulare interno, V piramidale interno (giganti di Betz), VI polimorfo
+    - Afferenze ed efferenze per strato || I: dai nuclei intralaminari e dai neuroni aminergici. II: fibre callosali e associative. IV: dal talamo (specifiche). III: invia efferenze callosali e associative. V: efferenze motrici (corticospinali). VI: al talamo.
+    - Citotipi: piramidali (efferenti), stellate/granulari, Martinotti, doppio pennacchio, orizzontali di Cajal, Retzius
+    - Colonne verticali: unità funzionali (50-100 μm) con stessa modalità di risposta
+    - Sviluppo "inside-out": gli strati profondi si formano per primi || ⚕ Errori genetici di migrazione dei progenitori: corteccia anomala (corteccia ispessita o assottigliata, neuroni rimasti presso il ventricolo, circonvoluzioni semplificate, microcefalia).
+  - Aree corticali (Brodmann, 1909: 52 aree)
+    - Primarie motorie e sensitive; secondarie (gnosie, schemi motori); associative
+    - Lobo frontale
+      - Area 4: motoria primaria (homunculus motorius) || Avvio, forza, direzione e sinergia del movimento volontario.
+      - Aree 4s e 6: premotoria e motoria supplementare (pianificazione, schemi motori) || Premotoria dorsale caudale (F2): raggiungere un obiettivo; dorsale rostrale (F7): associa stimoli a movimenti; ventrale caudale (F4): guida sensoriale; ventrale rostrale (F5): afferrare e portare alla bocca.
+      - Neuroni specchio (premotoria) || Si attivano sia eseguendo un'azione sia vedendola eseguire da altri: base di imitazione, apprendimento ed empatia.
+      - Area 8: campo oculare frontale (movimenti oculari volontari)
+      - Aree 9-12: prefrontale || Dorsolaterale: attenzione, pensiero, azione. Ventromediale/orbitale: emozioni, comportamento sociale. ⚕ Lesione orbitale: cambio di personalità, impulsività, perdita delle convenzioni sociali (caso Phineas Gage, 1848).
+      - Aree 44-45: Broca (linguaggio parlato); area di Exner (scritto)
+    - Lobo parietale
+      - Aree 3, 1, 2: somatosensitiva primaria (homunculus sensitivus)
+      - Aree 5, 7: stereognosiche (associative)
+    - Lobo temporale
+      - Aree 41, 42: acustica primaria; area 22: Wernicke (comprensione)
+      - Sinistro: parole; destro: tono, melodia e prosodia
+    - Lobo occipitale
+      - Area 17 visiva primaria (striata); 18-19 visive secondarie
+      - Blobs, colonne di dominanza oculare; via del "che cosa" (temporale inferiore, fusiforme)
+      - Area 39: Dejerine (linguaggio letto)
+    - Lobo limbico: cingolo, area sottocallosa, paraippocampale (emozioni, funzioni viscerali)
+  - Linguaggio e dominanza emisferica
+    - Centri nell'emisfero dominante (sinistro nel 90% dei destrimani)
+      - Motori: Broca (parlato), Exner (scritto)
+      - Sensitivi: Wernicke (parlato), Dejerine (letto)
+    - ⚕ Afasie || Lesione delle aree sensitive: afasia sensitiva (non si comprende). Lesione delle aree motrici: afasia espressiva e agrafia. Nell'emisfero non dominante: perdita della prosodia / aprosodia.
+    - Emisfero dominante: linguaggio, logica, manualità; controlaterale: emozioni, musica, spazio
+    - Test colore-parola || Leggere ad alta voce il colore dell'inchiostro di parole che indicano un altro colore: si sbaglia perché l'emisfero sinistro tende a leggere la parola mentre il destro rileva il colore.
+  - Sostanza bianca
+    - Fibre di associazione (stesso emisfero)
+      - Lunghe: tra lobi diversi (es. fascicolo arcuato tra aree del linguaggio)
+      - Brevi: tra regioni dello stesso lobo, giri adiacenti o colonne dello stesso giro
+    - Fibre commessurali (tra emisferi)
+      - Corpo calloso (neopallio)
+      - Commessura anteriore (paleopallio)
+      - Psalterium/commessura del fornice (archipallio)
+      - ⚕ Split brain (sezione del corpo calloso) || Gli emisferi non comunicano: un oggetto tenuto nella mano sinistra (o visto dall'emisfero destro) non può essere nominato perché il linguaggio è a sinistra, ma se ne può mimare l'uso.
+    - Fibre di proiezione: corona radiata → capsula interna
+    - Capsula interna || Braccio anteriore: fronto-pontine, talamo-corticali. Ginocchio: corticonucleari. Braccio posteriore: corticospinali, talamo-corticali, cortico-rubre. Retrolenticolare: radiazione ottica. Sottolenticolare: radiazione acustica.
+    - Capsula esterna ed estrema (attorno al claustro)
+  - Sistema della coscienza: contenuto (corteccia) e livello (reti attivatrici) || Definizione di Plum e Posner.
+- Gangli della base
+  - Componenti
+    - Striato: nucleo caudato + putamen (neostriato)
+    - Globo pallido: segmento esterno (GPe) e interno (GPi)
+    - Nucleo lenticolare = putamen + globo pallido
+    - Nucleo subtalamico, sostanza nera (compacta e reticulata), VTA, nucleo peduncolopontino
+    - Rapporti: caudato segue il ventricolo laterale (testa, corpo, coda)
+  - Funzione generale || Modulano l'eccitazione talamo-corticale per selezionare il programma motorio appropriato e inibire quelli in competizione. Uscita finale: GPi/SNr → talamo (VA/VL) → corteccia.
+  - Connessioni
+    - Afferenze allo striato: corticostriate (glutammato), nigrostriate (dopamina), talamostriate, subtalamo-striate
+    - Corteccia sensorimotoria → putamen; associative, oculari, limbiche → caudato
+    - Efferenze: striopallidali; sistema pallidofugale (ansa lenticolare, fascio lenticolare, fascicolo talamico; campi di Forel)
+    - Matrice e striosomi: compartimenti dello striato
+  - Circuiti
+    - Diretto (striato → GPi): aumenta l'eccitazione talamo-corticale || Lo striato inibisce il GPi, che normalmente inibisce il talamo: il risultato è una disinibizione del talamo (facilita il movimento).
+    - Indiretto (striato → GPe → nucleo subtalamico → GPi): riduce l'eccitazione talamo-corticale || Lo striato inibisce il GPe, che smette di inibire il subtalamico; questo eccita il GPi, che inibisce di più il talamo (frena i movimenti).
+    - Iperdiretto (corteccia → subtalamico → GPi): freno rapido
+    - Dopamina nigrostriatale: eccita il diretto e inibisce l'indiretto (D1/D2)
+  - Canali paralleli (anse)
+    - Motorio: area supplementare, movimenti appresi
+    - Oculomotore: saccadi volontarie
+    - Limbico: aspetti emotivi del movimento
+    - Cognitivo/esecutivo: prefrontale, apprendimento
+  - Nucleo accumbens (striato ventrale)
+    - Sistema mesolimbico dopaminergico (VTA): piacere, gratificazione, reward
+    - Core (sensorimotorio) e shell (amigdala, emozione, motivazione)
+    - ⚕ Dipendenza e craving: cocaina, amfetamine, morfina, alcol, cannabinoidi, nicotina ↑ dopamina nella shell
+  - Nucleo peduncolopontino: colinergico, connessioni con gangli della base e cervelletto
+  - ⚕ Malattie dei gangli della base
+    - Parkinson: degenerazione dei neuroni dopaminergici della sostanza nera
+    - Corea di Huntington: degenerazione dei neuroni GABAergici del neostriato
+    - Ballismo, emiballismo, atetosi: ridotta attività del nucleo subtalamico
+    - Distonia: disfunzione del globo pallido
+- Sistema limbico
+  - Concetto: "cervello viscerale/emozionale" (memoria, motivazione, emozioni)
+  - Componenti: lobo limbico (cingolo, paraippocampale), ippocampo, amigdala, setto, ipotalamo, nuclei anteriori del talamo
+  - Formazione dell'ippocampo (archipallio)
+    - Ippocampo ventrale: corno d'Ammone (CA1-CA4), giro dentato, subicolo
+    - Ippocampo dorsale (residuo): indusium griseum, strie longitudinali mediale e laterale
+    - Corteccia a 3 strati (molecolare, piramidale, polimorfo)
+    - Alveus → fimbria → fornice
+    - Circuito intrinseco (trisinaptico) || Corteccia entorinale (strati II-III) → via perforante → giro dentato (e CA3); giro dentato → fibre muscoidi → CA3; CA3 → collaterali di Schaffer → CA1 (e fuori tramite fimbria); CA1 → subicolo → corteccia entorinale → cortecce associative.
+    - Afferenze: entorinale (principale), setto (colinergiche), cingolo, amigdala, commessurali
+    - Efferenze: fornice → corpi mammillari, setto
+    - Fornice (trigono): colonne, corpo, gambe; psalterium (commessura)
+  - Circuito di Papez (memoria ed emozioni) || Ippocampo → fornice → corpi mammillari → fascio mammillo-talamico → nuclei anteriori del talamo → giro del cingolo → cingolo/paraippocampale → corteccia entorinale → ippocampo.
+  - Amigdala ("area sottocorticale della fobia")
+    - Nel lobo temporale anteriore; seleziona gli stimoli con significato motivazionale
+    - Gruppi nucleari ("amigdala estesa")
+      - Cortico-mediale: afferenze olfattive dirette; attività sessuale e motoria
+      - Basolaterale (più moderno) e centrale: da prefrontale, temporale, cingolo, entorinale; emozioni
+    - Efferenze: stria terminale, via amigdalofuga ventrale → ipotalamo, tronco, setto, talamo
+    - Condizionamento della paura || Stimolo neutro (CS, es. suono) e stimolo doloroso (US) convergono sul nucleo laterale; l'associazione passa al nucleo centrale, che attiva le risposte di paura (ipotalamo, grigio centrale).
+    - Stress: l'amigdala attiva ipotalamo e tronco; le catecolamine disregolano la prefrontale (circolo vizioso)
+  - Area del setto
+    - Setto pellucido (lamina sottile tra i corni frontali; NON è corteccia)
+    - Setto vero: area sottocallosa (giro paraolfattorio), giro paraterminale, banda diagonale di Broca
+    - Nuclei del setto: connessioni con ippocampo (fornice), ipotalamo, abenula
+  - Sistemi colinergici della base (Ch1-Ch8)
+    - Ch1 setto mediale, Ch2-Ch3 banda diagonale di Broca → ippocampo e bulbo olfattivo
+    - Ch4 nucleo basale di Meynert (sostanza innominata) || Principale sorgente di acetilcolina per tutta la neocorteccia; profondo alla sostanza perforata anteriore. Rilevante nei processi di attenzione e memoria.
+    - Ch5-Ch6 nuclei peduncolopontino e laterodorsale del tegmento; Ch7 abenula mediale; Ch8 parabigeminale
+- Vascolarizzazione del SNC
+  - Dati generali
+    - Flusso ~750 mL/min = 15% della gittata cardiaca
+    - Perfusione 50-54 mL/100 g/min; <18-20 ischemia; <8-10 morte tissutale
+    - Fattori: viscosità, calibro dei vasi, pressione di perfusione (PAM − PIC), autoregolazione
+    - Circolo terminale (scarse anastomosi a valle) || Le arterie cerebrali, una volta penetrate, si comportano come terminali: l'occlusione di un ramo non è compensata e produce infarto del territorio.
+  - Carotide esterna: non irrora l'encefalo, ma si anastomizza con il circolo intracranico (a. meningea media, a. angolare)
+  - Circolazione anteriore: carotide interna
+    - Decorso: collo → canale carotico → seno cavernoso → sifone
+    - A. oftalmica (occhio e retina)
+    - A. cerebrale anteriore (ACA): faccia mediale; a. pericallosa e callosomarginale
+      - A. striata mediale / ricorrente di Heubner (testa del caudato, capsula interna anteriore)
+    - A. cerebrale media (ACM): faccia laterale; aa. lenticolo-striate (striato e capsula interna)
+    - A. corioidea anteriore e comunicante posteriore
+    - ⚕ Amaurosi fugax || Cecità monoculare transitoria da microemboli nell'a. oftalmica: segnale di stenosi della carotide interna omolaterale (rischio di ictus).
+  - Circolazione posteriore: vertebro-basilare
+    - Aa. vertebrali (dalla succlavia, fori trasversari, forame magno) → aa. spinali e rami cerebellari; si uniscono nella basilare
+    - A. basilare (solco basilare): aa. pontine e cerebellari (tronco e cervelletto)
+    - A. cerebrale posteriore (ACP): lobo occipitale, faccia inferiore temporale, talamo
+    - ⚕ Furto della succlavia || Stenosi della succlavia prima dell'origine della vertebrale: sotto sforzo l'arto superiore "ruba" sangue invertendo il flusso nella vertebrale → ipoperfusione cerebrale, possibile perdita di coscienza.
+    - ⚕ Sindrome dell'apice della basilare: disturbi comportamentali, visivi, dell'oculomozione, sonnolenza
+    - ⚕ Sindrome locked-in || Occlusione della basilare con infarto del piede del ponte: paziente cosciente, mantiene la funzione oculomotoria, ma non può compiere altri movimenti volontari.
+  - Poligono di Willis || Circolo anastomotico alla base dell'encefalo tra carotidi interne e basilare: ACA unite dalla comunicante anteriore, comunicanti posteriori tra carotide e ACP. Uniforma la distribuzione del sangue.
+    - Rami perforanti centrali: gruppi mediali anteriore/posteriore e laterali anteriore/posteriore || Mediale anteriore: ipotalamo. Mediale posteriore: ipofisi, corpi mammillari, subtalamo, talamo mediale, mesencefalo. Laterale anteriore: striato, capsula interna, amigdala. Laterale posteriore: polo posteriore del talamo.
+    - Territori corticali e profondi corrispondenti per ACA, ACM, ACP
+    - ⚕ Ischemia "degli ultimi prati" (aree di confine tra due arterie)
+  - Anastomosi extra-intracraniche || Destra-sinistra; carotico-vertebrale (Willis); carotide interna-esterna (a. angolare del naso, meningea media); succlavio-carotica; succlavio-vertebrale.
+  - Seno cavernoso: attraversato da carotide interna, III, IV, V1, V2, VI || ⚕ Comunica con le vene facciali: possibile via di diffusione delle infezioni dalla faccia.
+  - Circolo venoso
+    - Vene cerebrali superficiali: superiori (→ seno sagittale sup.), inferiori (→ seni trasverso, petroso sup.)
+    - Vene profonde: talamo-striata + v. del setto → v. cerebrale interna; v. basale di Rosenthal → v. cerebrale magna di Galeno → seno retto
+    - Seni della dura: sagittale sup./inf., retto, trasversi, sigmoidei → giugulare interna; cavernoso, petrosi
+    - Affluenti del seno sagittale sup.: vene cerebrali, meningee, diploiche, emissarie
+  - → Midollo spinale › Vascolarizzazione
+</script>
+
+<script>
+(function(){
+"use strict";
+/* ================= dati ================= */
+const ROOT_TITLE = "Neuroanatomia";
+const ROOT_SUB = "Sistema nervoso centrale e periferico";
+const PALETTE = ["#d94f5c","#e8873a","#c9a227","#4f9d5d","#2b9a8f","#3a83c4","#5b6fd6","#8a5bd6","#c04c9a","#a0654a","#5f7f8f","#c2603f","#3f8f6e","#7a6fb0","#b7484a","#3d7fa8","#8b8a3a"];
+const STORE = "neuroMap.v1";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+
+function parse(text){
+  const root = {t:ROOT_TITLE, n:"", c:[], d:0, p:null, id:"r"};
+  const stack = [root];
+  text.split(/\r?\n/).forEach(line => {
+    const m = line.match(/^( *)- (.*)$/);
+    if(!m) return;
+    const depth = Math.floor(m[1].length/2) + 1;
+    let raw = m[2].trim(), note = "";
+    const k = raw.indexOf(" || ");
+    if(k >= 0){ note = raw.slice(k+4).trim(); raw = raw.slice(0,k).trim(); }
+    let kind = "";
+    if(raw.startsWith("⚕")){ kind = "clin"; raw = raw.replace(/^⚕\s*/,""); }
+    else if(raw.startsWith("→")){ kind = "ref"; raw = raw.replace(/^→\s*/,""); }
+    while(stack.length > depth) stack.pop();
+    const parent = stack[stack.length-1];
+    const node = {t:raw, n:note, c:[], d:parent.d+1, p:parent, kind};
+    node.id = parent.id + "." + parent.c.length;
+    parent.c.push(node);
+    stack.push(node);
+  });
+  return root;
+}
+const root = parse(document.getElementById("mapdata").textContent);
+const all = [], byId = new Map();
+(function walk(n, side, color){
+  n.side = side; n.color = color; all.push(n); byId.set(n.id, n);
+  n.open = false; n.vis = false; n.w = null;
+  n.cx = 0; n.cy = 0; n.x = 0; n.y = 0; n.op = 0; n.top = 0;
+  n.c.forEach((ch, i) => {
+    let s = side, col = color;
+    if(n.d === 0){ col = PALETTE[i % PALETTE.length]; }
+    walk(ch, s, col);
+  });
+})(root, 1, "#555");
+root.side = 0;
+const NARROW = () => innerWidth <= 760;
+let oneSided = false;
+function assignSides(one){
+  oneSided = one;
+  root.c.forEach((m, i) => {
+    const s = one ? 1 : (i < Math.ceil(root.c.length/2) ? 1 : -1);
+    (function w(n){ n.side = s; n.c.forEach(w); })(m);
+  });
+}
+assignSides(NARROW());
+const countDesc = n => n.nd != null ? n.nd : (n.nd = n.c.reduce((a,ch)=>a+1+countDesc(ch),0));
+
+/* ================= stato persistente ================= */
+let saved = null;
+try{ saved = JSON.parse(localStorage.getItem(STORE) || "null"); }catch(e){ saved = null; }
+function persist(){
+  try{
+    localStorage.setItem(STORE, JSON.stringify({open: all.filter(n=>n.open).map(n=>n.id), theme: document.documentElement.dataset.theme || "light"}));
+  }catch(e){}
+}
+if(saved && saved.theme === "dark") document.documentElement.dataset.theme = "dark";
+else if(!saved && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.theme = "dark";
+if(saved && Array.isArray(saved.open)){ saved.open.forEach(id => { const n = byId.get(id); if(n) n.open = true; }); root.open = true; }
+else root.open = true;
+
+/* ================= DOM dei nodi ================= */
+const world = $("#world"), svg = $("#links"), vp = $("#viewport");
+const SVGNS = "http://www.w3.org/2000/svg";
+function ensureEl(n){
+  if(n.el) return;
+  const el = document.createElement("div");
+  const lvCls = n.d <= 2 ? "lv"+n.d : "lvx lv"+n.d;
+  el.className = "node " + lvCls + (n.c.length ? "" : " leaf") + (n.n ? " hasnote" : "") + (n.kind ? " "+n.kind : "");
+  el.dataset.id = n.id;
+  el.style.setProperty("--c", n.color);
+  el.setAttribute("role","treeitem");
+  let html = '<span class="txt">' + (n.kind === "ref" ? "↪ " : "") + esc(n.t) + (n.d===0 ? "<small>"+esc(ROOT_SUB)+"</small>" : "") + "</span>";
+  if(n.kind === "clin") html += '<span class="chip">Clinica</span>';
+  if(n.n) html += '<button class="nb" title="Apri la nota" aria-label="Nota">i</button>';
+  el.innerHTML = html;
+  if(n.n) el.title = n.n;
+  world.appendChild(el);
+  n.el = el;
+  if(n.c.length){
+    const tg = document.createElement("button");
+    tg.className = "tg"; tg.dataset.id = n.id; tg.style.setProperty("--c", n.color);
+    tg.setAttribute("aria-label","Apri/chiudi ramo");
+    world.appendChild(tg); n.tg = tg;
+  }
+  if(n.p){
+    const path = document.createElementNS(SVGNS, "path");
+    path.setAttribute("stroke", n.color);
+    path.setAttribute("stroke-width", n.d === 1 ? 3.2 : n.d === 2 ? 2.2 : 1.6);
+    svg.appendChild(path); n.path = path;
+  }
+}
+
+/* ================= layout ================= */
+const HGAP = d => d === 0 ? 70 : d === 1 ? 42 : 30;
+const VGAP = d => d === 0 ? 26 : d === 1 ? 12 : 6;
+const anchorY = (n, y) => n.d >= 3 ? y + n.h - 1 : y + n.h/2;
+function visibleSet(){
+  const s = [];
+  (function w(n){ s.push(n); if(n.open) n.c.forEach(w); })(root);
+  return s;
+}
+function measure(n){ if(n.w == null){ n.w = Math.ceil(n.el.offsetWidth); n.h = Math.ceil(n.el.offsetHeight); } }
+function sub(n){
+  if(!n.open || !n.c.length){ n.mid = n.h/2; return n.sh = n.h; }
+  let s = 0; n.c.forEach((ch,i) => { s += sub(ch) + (i ? VGAP(n.d) : 0); });
+  n.chH = s;
+  if(n.d >= 3){ // nodo "sottolineato": la linea di base è allineata al centro dei figli
+    const above = Math.max(n.h - 1, s/2), below = s/2;
+    n.mid = above; return n.sh = above + below;
+  }
+  n.mid = Math.max(n.h, s)/2;
+  return n.sh = Math.max(n.h, s);
+}
+function place(n, xEdge, top, dir){
+  n.x = dir > 0 ? xEdge : xEdge - n.w;
+  const c = top + n.mid;                     // asse orizzontale del sottoalbero
+  n.y = (n.d >= 3 && n.open && n.c.length) ? c - n.h + 1 : c - n.h/2;
+  if(n.open && n.c.length){
+    let cy = c - n.chH/2;
+    const cx = dir > 0 ? n.x + n.w + HGAP(n.d) : n.x - HGAP(n.d);
+    n.c.forEach(ch => { place(ch, cx, cy, dir); cy += ch.sh + VGAP(n.d); });
+  }
+}
+function layout(){
+  root.x = -root.w/2; root.y = -root.h/2;
+  if(!root.open) return;
+  [1,-1].forEach(dir => {
+    const kids = root.c.filter(c => c.side === dir);
+    let tot = 0; kids.forEach((k,i) => { tot += sub(k) + (i ? VGAP(0) : 0); });
+    let top = -tot/2;
+    const x = dir > 0 ? root.x + root.w + HGAP(0) : root.x - HGAP(0);
+    kids.forEach(k => { place(k, x, top, dir); top += k.sh + VGAP(0); });
+  });
+}
+
+/* ================= vista (pan/zoom) ================= */
+const view = {tx: innerWidth/2, ty: innerHeight/2, k: 1};
+function applyView(){
+  world.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.k})`;
+  $("#zoomlbl").textContent = Math.round(view.k*100) + "%";
+}
+const KMIN = 0.12, KMAX = 2.5;
+function zoomAt(f, sx, sy){
+  const k2 = Math.min(KMAX, Math.max(KMIN, view.k * f));
+  const r = k2 / view.k;
+  view.tx = sx - (sx - view.tx) * r; view.ty = sy - (sy - view.ty) * r; view.k = k2;
+  applyView();
+}
+
+/* ================= animazione ================= */
+const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let anim = null;
+function bezier(p, c){
+  const dir = c.side;
+  const sx = dir > 0 ? p.cx + p.w : p.cx;
+  const sy = p.d === 0 ? p.cy + p.h/2 : anchorY(p, p.cy);
+  const ex = dir > 0 ? c.cx : c.cx + c.w;
+  const ey = anchorY(c, c.cy);
+  const dx = (ex - sx) * 0.55;
+  return `M${sx.toFixed(1)},${sy.toFixed(1)} C${(sx+dx).toFixed(1)},${sy.toFixed(1)} ${(ex-dx).toFixed(1)},${ey.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
+}
+function drawNode(n){
+  n.el.style.transform = `translate(${n.cx}px,${n.cy}px)`;
+  n.el.style.opacity = n.op;
+  if(n.tg){
+    const show = n.vis && n.d > 0;
+    if(show){
+      const x = n.side > 0 ? n.cx + n.w + 3 : n.cx - 21;
+      const y = anchorY(n, n.cy) - 9;
+      n.tg.style.transform = `translate(${x}px,${y}px)`;
+      n.tg.style.opacity = n.op;
+    }
+  }
+  if(n.path && n.p) n.path.setAttribute("d", bezier(n.p, n));
+  if(n.path) n.path.style.opacity = n.op;
+}
+function syncToggle(n){
+  if(!n.tg) return;
+  n.tg.style.display = (n.vis && n.d > 0) ? "block" : "none";
+  n.tg.classList.toggle("closed", !n.open);
+  n.tg.textContent = n.open ? "−" : String(n.c.length);
+  n.tg.title = n.open ? "Chiudi ramo" : `Apri ramo (${n.c.length} sotto-argomenti, ${countDesc(n)} in totale)`;
+  if(n.el) n.el.setAttribute("aria-expanded", n.open ? "true" : "false");
+}
+
+function relayout(anchor, opts){
+  opts = opts || {};
+  const vis = visibleSet();
+  const visSet = new Set(vis);
+  const entering = vis.filter(n => !n.vis || n.leaving);
+  entering.forEach(n => { ensureEl(n); n.el.style.display = "block"; if(n.path) n.path.style.display = ""; });
+  entering.forEach(measure);              // una sola lettura dopo le scritture
+  const ax0 = anchor ? anchor.cx : 0, ay0 = anchor ? anchor.cy : 0;
+  layout();
+  // stati iniziali
+  entering.forEach(n => {
+    if(!n.vis){
+      const a = n.p || n;
+      n.cx = a.vis ? a.cx + (n.side > 0 ? a.w - n.w*0.25 : n.w*-0.75 + 0) : n.x;
+      n.cy = a.vis ? a.cy + (a.h - n.h)/2 : n.y;
+      n.op = 0; n.vis = true;
+    }
+    n.leaving = false;
+  });
+  const leaving = all.filter(n => n.vis && !visSet.has(n));
+  leaving.forEach(n => {
+    n.leaving = true;
+    let a = n.p; while(a && !visSet.has(a)) a = a.p;
+    n.x = a ? a.x + (n.side > 0 ? a.w - n.w : 0) : n.cx;
+    n.y = a ? a.y + (a.h - n.h)/2 : n.cy;
+  });
+  const movers = vis.concat(leaving);
+  movers.forEach(n => { n.fx = n.cx; n.fy = n.cy; n.fo = n.op; n.to = n.leaving ? 0 : 1; syncToggle(n); });
+  // mantieni fermo il nodo cliccato sullo schermo
+  const v0 = {tx:view.tx, ty:view.ty, k:view.k};
+  let v1 = {tx:view.tx, ty:view.ty, k:view.k};
+  if(anchor){ v1.tx = view.tx + (ax0 - anchor.x) * view.k; v1.ty = view.ty + (ay0 - anchor.y) * view.k; }
+  if(opts.view) v1 = opts.view(v1);
+  const dur = (reduce || opts.instant) ? 0 : 300;
+  if(anim) cancelAnimationFrame(anim.raf);
+  const t0 = performance.now();
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+  function frame(now){
+    const t = dur ? Math.min(1, (now - t0)/dur) : 1, e = ease(t);
+    movers.forEach(n => {
+      n.cx = n.fx + (n.x - n.fx)*e; n.cy = n.fy + (n.y - n.fy)*e; n.op = n.fo + (n.to - n.fo)*e;
+    });
+    movers.forEach(drawNode);
+    view.tx = v0.tx + (v1.tx - v0.tx)*e; view.ty = v0.ty + (v1.ty - v0.ty)*e; view.k = v0.k + (v1.k - v0.k)*e;
+    applyView();
+    if(t < 1){ anim.raf = requestAnimationFrame(frame); }
+    else {
+      leaving.forEach(n => {
+        if(!n.leaving) return;
+        n.vis = false; n.leaving = false;
+        n.el.style.display = "none"; if(n.tg) n.tg.style.display = "none"; if(n.path) n.path.style.display = "none";
+      });
+      anim = null;
+      if(opts.done) opts.done();
+    }
+  }
+  anim = {raf: requestAnimationFrame(frame)};
+  persist();
+}
+
+/* ================= azioni ================= */
+function toggle(n){
+  if(!n.c.length) return;
+  n.open = !n.open;
+  document.querySelectorAll("[data-lv]").forEach(b => b.classList.remove("on"));
+  relayout(n, {view: v => n.open ? keepInView(n, v) : v});
+}
+// dopo l'apertura sposta la vista quel tanto che basta a mostrare i figli, senza perdere il nodo
+function keepInView(n, v){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  n.c.forEach(c => { x0=Math.min(x0,c.x); y0=Math.min(y0,c.y); x1=Math.max(x1,c.x+c.w+24); y1=Math.max(y1,c.y+c.h); });
+  x0=Math.min(x0,n.x); x1=Math.max(x1,n.x+n.w);
+  const box = viewportBox(), m = 16, k = v.k;
+  const sx0 = x0*k+v.tx, sx1 = x1*k+v.tx, sy0 = y0*k+v.ty, sy1 = y1*k+v.ty;
+  const nx0 = n.x*k+v.tx, nx1 = (n.x+n.w)*k+v.tx, ny0 = n.y*k+v.ty, ny1 = (n.y+n.h)*k+v.ty;
+  let dx = 0, dy = 0;
+  if(sx1 > box.x+box.w-m) dx = (box.x+box.w-m) - sx1;
+  if(sx0 + dx < box.x+m) dx = (box.x+m) - sx0;
+  dx = Math.max(dx, (box.x+m) - nx0); dx = Math.min(dx, (box.x+box.w-m) - nx1);
+  if(sy1 > box.y+box.h-m) dy = (box.y+box.h-m) - sy1;
+  if(sy0 + dy < box.y+m) dy = (box.y+m) - sy0;
+  dy = Math.max(dy, (box.y+m) - ny0); dy = Math.min(dy, (box.y+box.h-m) - ny1);
+  return {k, tx: v.tx+dx, ty: v.ty+dy};
+}
+function setLevel(L){
+  all.forEach(n => { n.open = n.d < L && n.c.length > 0; });
+  root.open = true;
+  relayout(null, {view: () => fitView(true), done: null});
+  document.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("on", +b.dataset.lv === L));
+}
+function bounds(){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  visibleSet().forEach(n => { x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+n.w+24); y1=Math.max(y1,n.y+n.h); });
+  return {x0,y0,x1,y1};
+}
+function viewportBox(){
+  const bar = $("#bar").getBoundingClientRect();
+  const top = bar.bottom + 8;
+  let right = innerWidth;
+  if($("#panel").classList.contains("open") && innerWidth > 760) right = $("#panel").getBoundingClientRect().left - 8;
+  let bottom = innerHeight;
+  if($("#panel").classList.contains("open") && innerWidth <= 760) bottom = $("#panel").getBoundingClientRect().top - 8;
+  return {x:0, y:top, w:right, h:bottom - top};
+}
+function fitView(ret){
+  const b = bounds(), box = viewportBox(), pad = 30;
+  const k = Math.min(1.1, Math.max(KMIN, Math.min((box.w - 2*pad)/(b.x1 - b.x0), (box.h - 2*pad)/(b.y1 - b.y0))));
+  let v = {k, tx: box.x + box.w/2 - (b.x0 + b.x1)/2 * k, ty: box.y + box.h/2 - (b.y0 + b.y1)/2 * k};
+  if(NARROW() && k < 0.6){
+    const k2 = 0.6, ty = (b.y1-b.y0)*k2 < box.h - 2*pad ? box.y + box.h/2 - (b.y0+b.y1)/2*k2 : box.y + pad - b.y0*k2;
+    v = {k:k2, tx: box.x + 10 - b.x0*k2, ty};
+  }
+  if(ret) return v;
+  animateView(v);
+}
+function animateView(v1){
+  const v0 = {tx:view.tx, ty:view.ty, k:view.k}, t0 = performance.now(), dur = reduce ? 0 : 420;
+  function f(now){
+    const t = dur ? Math.min(1,(now-t0)/dur) : 1, e = 1 - Math.pow(1-t,3);
+    view.tx = v0.tx+(v1.tx-v0.tx)*e; view.ty = v0.ty+(v1.ty-v0.ty)*e; view.k = v0.k+(v1.k-v0.k)*e; applyView();
+    if(t < 1) requestAnimationFrame(f);
+  }
+  requestAnimationFrame(f);
+}
+function centerOn(n, v){
+  const box = viewportBox(), k = Math.max(view.k, 0.85);
+  const r = {k, tx: box.x + box.w/2 - (n.x + n.w/2)*k, ty: box.y + box.h/2 - (n.y + n.h/2)*k};
+  return v ? r : animateView(r);
+}
+function reveal(n, thenOpenNote){
+  let a = n.p; while(a){ a.open = true; a = a.p; }
+  relayout(null, {view: () => centerOn(n, true), done: () => {
+    n.el.classList.remove("flash"); void n.el.offsetWidth; n.el.classList.add("flash");
+    if(thenOpenNote) openNote(n);
+  }});
+}
+function pathOf(n){ const p = []; let a = n; while(a){ p.unshift(a); a = a.p; } return p; }
+function resolveRef(n){
+  const segs = n.t.split("›").map(s => norm(s.trim()));
+  let cur = root;
+  for(const s of segs){
+    let found = null; const q = cur.c.slice();
+    while(q.length && !found){ const x = q.shift(); if(x !== n && norm(x.t).startsWith(s)) found = x; else q.push(...x.c); }
+    if(!found) return null;
+    cur = found;
+  }
+  return cur;
+}
+
+/* ---------- pannello note ---------- */
+let selected = null;
+function openNote(n){
+  if(selected && selected.el) selected.el.classList.remove("sel");
+  selected = n; if(n.el) n.el.classList.add("sel");
+  const P = $("#panel");
+  P.style.setProperty("--c", n.color);
+  $("#pcrumbs").innerHTML = pathOf(n).slice(0,-1).map(a => `<a data-id="${a.id}">${esc(a.t)}</a>`).join(" › ");
+  $("#ptitle").innerHTML = esc(n.t) + (n.kind === "clin" ? ' <span class="chip">Clinica</span>' : "");
+  let body = n.n ? "<p>" + esc(n.n) + "</p>" : '<p class="empty">Nessuna nota per questo nodo.</p>';
+  if(n.c.length){
+    body += `<div class="sub">Sotto-argomenti (${n.c.length})</div><ul class="kids">` +
+      n.c.map(c => `<li data-id="${c.id}">${c.kind==="clin"?"⚕ ":""}${esc(c.t)}${c.n?" <b style='color:var(--c)'>ⓘ</b>":""}</li>`).join("") + "</ul>";
+  }
+  $("#pbody").innerHTML = body;
+  P.classList.add("open");
+  try{ history.replaceState(null, "", "#n=" + n.id); }catch(e){}
+}
+function closeNote(){
+  $("#panel").classList.remove("open");
+  if(selected && selected.el) selected.el.classList.remove("sel");
+  selected = null;
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+}
+$("#pclose").addEventListener("click", closeNote);
+$("#panel").addEventListener("click", e => {
+  const a = e.target.closest("[data-id]"); if(!a) return;
+  const n = byId.get(a.dataset.id); if(!n) return;
+  reveal(n, true);
+});
+
+/* ---------- interazione puntatore ---------- */
+const ptrs = new Map(); let drag = null, pinch = null;
+vp.addEventListener("pointerdown", e => {
+  if(e.button !== 0 && e.pointerType === "mouse") return;
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  try{ vp.setPointerCapture(e.pointerId); }catch(_){}
+  if(ptrs.size === 1){
+    drag = {x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty, moved:false, target:e.target};
+  } else if(ptrs.size === 2){
+    const [a,b] = [...ptrs.values()];
+    pinch = {d: Math.hypot(a.x-b.x, a.y-b.y), k: view.k};
+    if(drag) drag.moved = true;
+  }
+});
+vp.addEventListener("pointermove", e => {
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pinch && ptrs.size >= 2){
+    const [a,b] = [...ptrs.values()];
+    const d = Math.hypot(a.x-b.x, a.y-b.y);
+    zoomAt((pinch.k * d / pinch.d) / view.k, (a.x+b.x)/2, (a.y+b.y)/2);
+    return;
+  }
+  if(drag){
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if(!drag.moved && Math.hypot(dx,dy) > 5){ drag.moved = true; vp.classList.add("dragging"); }
+    if(drag.moved){ view.tx = drag.tx + dx; view.ty = drag.ty + dy; applyView(); }
+  }
+});
+function endPtr(e){
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if(ptrs.size < 2) pinch = null;
+  if(ptrs.size === 0){
+    vp.classList.remove("dragging");
+    if(drag && !drag.moved && e.type === "pointerup") handleTap(drag.target);
+    drag = null;
+  } else if(ptrs.size === 1){
+    const [a] = [...ptrs.values()];
+    drag = {x:a.x, y:a.y, tx:view.tx, ty:view.ty, moved:true};
+  }
+}
+vp.addEventListener("pointerup", endPtr);
+vp.addEventListener("pointercancel", endPtr);
+function handleTap(t){
+  closeMenus();
+  const tg = t.closest && t.closest(".tg");
+  if(tg){ toggle(byId.get(tg.dataset.id)); return; }
+  const nodeEl = t.closest && t.closest(".node");
+  if(!nodeEl) return;
+  const n = byId.get(nodeEl.dataset.id);
+  if(t.closest(".nb")){ openNote(n); return; }
+  if(n.kind === "ref"){
+    const tgt = resolveRef(n);
+    if(tgt){ reveal(tgt, true); } else toast("Rimando non trovato");
+    return;
+  }
+  if(n.d === 0){ fitView(); return; }
+  if(n.c.length) toggle(n);
+  else if(n.n) openNote(n);
+}
+vp.addEventListener("wheel", e => {
+  e.preventDefault();
+  const isZoom = e.ctrlKey || e.metaKey || e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
+  if(isZoom){
+    const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    zoomAt(Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)), e.clientX, e.clientY);
+  } else { view.tx -= e.deltaX; view.ty -= e.deltaY; applyView(); }
+}, {passive:false});
+
+/* ---------- toolbar ---------- */
+document.querySelectorAll("[data-lv]").forEach(b => b.addEventListener("click", () => setLevel(+b.dataset.lv)));
+$("#zin").addEventListener("click", () => zoomAt(1.25, innerWidth/2, innerHeight/2));
+$("#zout").addEventListener("click", () => zoomAt(0.8, innerWidth/2, innerHeight/2));
+$("#zoomlbl").addEventListener("click", () => zoomAt(1/view.k, innerWidth/2, innerHeight/2));
+$("#fit").addEventListener("click", () => fitView());
+$("#theme").addEventListener("click", () => {
+  const d = document.documentElement;
+  d.dataset.theme = d.dataset.theme === "dark" ? "light" : "dark";
+  themeIcon(); persist();
+});
+$("#infoBtn").addEventListener("click", () => $("#modal").classList.add("open"));
+$("#mclose").addEventListener("click", () => $("#modal").classList.remove("open"));
+$("#modal").addEventListener("click", e => { if(e.target.id === "modal") $("#modal").classList.remove("open"); });
+const expMenu = $("#expMenu");
+function closeMenus(){ expMenu.classList.remove("open"); }
+$("#expBtn").addEventListener("click", e => { e.stopPropagation(); expMenu.classList.toggle("open"); });
+document.addEventListener("click", e => { if(!expMenu.contains(e.target)) closeMenus(); });
+expMenu.querySelectorAll("[data-exp]").forEach(b => b.addEventListener("click", () => { exportAs(b.dataset.exp); closeMenus(); }));
+
+function download(name, text, type){
+  try{
+    const blob = new Blob([text], {type});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast("File " + name + " scaricato");
+  }catch(e){ toast("Download non disponibile in questa anteprima"); }
+}
+function exportAs(kind){
+  if(kind === "md"){
+    let out = "# " + ROOT_TITLE + " — mappa mentale\n\n";
+    (function w(n, lvl){
+      n.c.forEach(c => {
+        const pre = "  ".repeat(lvl) + "- ";
+        const tag = c.kind === "clin" ? "⚕ " : c.kind === "ref" ? "↪ " : "";
+        out += pre + (lvl === 0 ? "**" + tag + c.t + "**" : tag + c.t) + (c.n ? "  \n" + "  ".repeat(lvl+1) + "_" + c.n.replace(/_/g,"\\_") + "_" : "") + "\n";
+        w(c, lvl + 1);
+      });
+    })(root, 0);
+    download("neuroanatomia-mappa.md", out, "text/markdown;charset=utf-8");
+  } else if(kind === "opml"){
+    const x = s => esc(s).replace(/\n/g,"&#10;");
+    let out = '<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0"><head><title>' + x(ROOT_TITLE) + '</title></head><body>\n';
+    (function w(n, ind){
+      const title = (n.kind === "clin" ? "⚕ " : n.kind === "ref" ? "↪ " : "") + n.t;
+      const attrs = ' text="' + x(title) + '"' + (n.n ? ' _note="' + x(n.n) + '"' : "");
+      if(!n.c.length){ out += ind + "<outline" + attrs + "/>\n"; return; }
+      out += ind + "<outline" + attrs + ">\n"; n.c.forEach(c => w(c, ind + "  ")); out += ind + "</outline>\n";
+    })(root, "  ");
+    out += "</body></opml>\n";
+    download("neuroanatomia-mappa.opml", out, "text/x-opml;charset=utf-8");
+  } else {
+    const j = (function w(n){ const o = {titolo:n.t}; if(n.kind) o.tipo = n.kind === "clin" ? "clinica" : "rimando"; if(n.n) o.nota = n.n; if(n.c.length) o.figli = n.c.map(w); return o; })(root);
+    download("neuroanatomia-mappa.json", JSON.stringify(j, null, 2), "application/json");
+  }
+}
+let toastT = null;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2200); }
+
+/* ---------- ricerca ---------- */
+const q = $("#q"), res = $("#res"), qx = $("#qx");
+const index = all.filter(n => n.d > 0).map(n => ({n, t: norm(n.t), nn: norm(n.n), path: pathOf(n).slice(1,-1).map(a => a.t).join(" › ")}));
+let results = [], act = -1, hitNodes = [];
+function hl(text, query){
+  const nt = norm(text); const i = nt.indexOf(query);
+  if(i < 0 || !query) return esc(text);
+  return esc(text.slice(0,i)) + "<mark>" + esc(text.slice(i, i + query.length)) + "</mark>" + esc(text.slice(i + query.length));
+}
+function snippet(text, query){
+  const i = norm(text).indexOf(query); if(i < 0) return "";
+  const s = Math.max(0, i - 40), e = Math.min(text.length, i + query.length + 60);
+  return (s > 0 ? "…" : "") + hl(text.slice(s, e), query) + (e < text.length ? "…" : "");
+}
+function doSearch(){
+  const v = norm(q.value.trim());
+  qx.style.display = q.value ? "block" : "none";
+  hitNodes.forEach(n => n.el && n.el.classList.remove("hit")); hitNodes = [];
+  if(v.length < 2){ res.style.display = "none"; results = []; return; }
+  const words = v.split(/\s+/);
+  results = index.filter(r => words.every(w => r.t.includes(w) || r.nn.includes(w)))
+    .map(r => ({...r, score: (r.t.startsWith(v) ? 0 : r.t.includes(v) ? 1 : words.every(w => r.t.includes(w)) ? 2 : 3) + r.n.d * 0.01}))
+    .sort((a,b) => a.score - b.score);
+  results.forEach(r => { hitNodes.push(r.n); ensureEl(r.n); r.n.el.classList.add("hit"); });
+  act = results.length ? 0 : -1;
+  renderRes(words[0] === v ? v : words[0]);
+}
+function renderRes(hq){
+  if(!results.length){ res.innerHTML = '<div class="cnt">Nessun risultato</div>'; res.style.display = "block"; return; }
+  res.innerHTML = `<div class="cnt">${results.length} risultat${results.length === 1 ? "o" : "i"}${results.length > 60 ? " (primi 60)" : ""}</div>` +
+    results.slice(0,60).map((r,i) => `<div class="r${i === act ? " act" : ""}" data-i="${i}" role="option"><b>${r.n.kind==="clin"?"⚕ ":""}${hl(r.n.t, hq)}</b><span class="pth">${esc(r.path || "—")}</span>${!r.t.includes(hq) && r.nn.includes(hq) ? `<span class="sn">${snippet(r.n.n, hq)}</span>` : ""}</div>`).join("");
+  res.style.display = "block";
+}
+function pick(i){
+  const r = results[i]; if(!r) return;
+  res.style.display = "none"; q.blur();
+  reveal(r.n, !!r.n.n);
+}
+let st = null;
+q.addEventListener("input", () => { clearTimeout(st); st = setTimeout(doSearch, 120); });
+q.addEventListener("focus", () => { if(results.length) res.style.display = "block"; });
+q.addEventListener("keydown", e => {
+  if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+    e.preventDefault(); if(!results.length) return;
+    act = (act + (e.key === "ArrowDown" ? 1 : -1) + Math.min(results.length,60)) % Math.min(results.length,60);
+    res.querySelectorAll(".r").forEach((el,i) => el.classList.toggle("act", i === act));
+    const a = res.querySelector(".r.act"); if(a) a.scrollIntoView({block:"nearest"});
+  } else if(e.key === "Enter"){ e.preventDefault(); clearTimeout(st); if(!results.length) doSearch(); pick(Math.max(0,act)); }
+  else if(e.key === "Escape"){ res.style.display = "none"; q.blur(); }
+});
+res.addEventListener("mousedown", e => e.preventDefault());
+res.addEventListener("click", e => { const r = e.target.closest(".r"); if(r) pick(+r.dataset.i); });
+document.addEventListener("pointerdown", e => { if(!$("#searchWrap").contains(e.target)) res.style.display = "none"; });
+qx.addEventListener("click", () => { q.value = ""; doSearch(); q.focus(); });
+
+/* ---------- tastiera ---------- */
+document.addEventListener("keydown", e => {
+  const typing = /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName);
+  if(e.key === "Escape"){ if($("#modal").classList.contains("open")) $("#modal").classList.remove("open"); else closeNote(); return; }
+  if(typing) return;
+  if(e.key === "/"){ e.preventDefault(); q.focus(); q.select(); }
+  else if(e.key === "0") fitView();
+  else if(e.key === "+" || e.key === "=") zoomAt(1.25, innerWidth/2, innerHeight/2);
+  else if(e.key === "-") zoomAt(0.8, innerWidth/2, innerHeight/2);
+});
+
+/* ================= avvio ================= */
+function themeIcon(){ $("#theme").textContent = document.documentElement.dataset.theme === "dark" ? "☀" : "☾"; }
+themeIcon();
+function syncBar(){ document.documentElement.style.setProperty('--top', Math.round($("#bar").getBoundingClientRect().bottom + 10) + 'px'); }
+syncBar(); addEventListener('resize', () => { syncBar(); if(NARROW() !== oneSided){ assignSides(NARROW()); relayout(null, {instant:true}); } });
+ensureEl(root);
+function start(){
+  let target = null;
+  const m = location.hash.match(/n=([\w.]+)/);
+  if(m) target = byId.get(m[1]);
+  relayout(null, {instant:true});
+  if(target){ reveal(target, true); }
+  else { animateView(fitView(true)); }
+  const anyOpen = all.some(n => n.d > 0 && n.open);
+  document.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("on", !anyOpen && b.dataset.lv === "1"));
+}
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+})();
+</script>
+</body>
+</html>
